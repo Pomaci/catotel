@@ -480,10 +480,10 @@ export default function IndexScreen() {
               />
             </View>
             <Text style={styles.helperText}>
-              En az 8 karakter olmal??.
+              En az 8 karakter olmalı.
             </Text>
             {showRegisterErrors && !registerValidations.password && (
-              <Text style={styles.errorText}>??ifren en az 8 karakter olmal??.</Text>
+              <Text style={styles.errorText}>Şifren en az 8 karakter olmalı.</Text>
             )}
           </View>
 

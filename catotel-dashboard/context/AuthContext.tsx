@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         loading: false,
-        error: err?.message ?? 'Giri?Y ba?Yar??s??z.',
+        error: err?.message ?? 'Giriş başarısız.',
       }));
       return null;
     }
@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         loading: false,
-        error: err?.message ?? 'Kay??t i?Ylemi ba?Yar??s??z.',
+        error: err?.message ?? 'Kayıt işlemi başarısız.',
       }));
       return null;
     }
@@ -254,3 +254,4 @@ export function useAuth() {
   }
   return ctx;
 }
+

@@ -118,11 +118,14 @@ export class MailService implements OnModuleInit {
     const subject = 'Miaow Hotel ekibinden merhaba';
     const salutation = name ? `Merhaba ${name},` : 'Merhaba,';
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
-        <p>${salutation}</p>
-        <p>Miaow Hotel ailesine katıldığın için teşekkür ederiz. Kedinin konaklamasını yönetmek, canlı yayın ile onu izlemek ve bakım planlarını oluşturmak için hesabını kullanabilirsin.</p>
-        <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
-      </div>
+      <html>
+        <head><meta charset="UTF-8" /></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
+          <p>${salutation}</p>
+          <p>Miaow Hotel ailesine katıldığın için teşekkür ederiz. Kedinin konaklamasını yönetmek, canlı yayın ile onu izlemek ve bakım planlarını oluşturmak için hesabını kullanabilirsin.</p>
+          <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
+        </body>
+      </html>
     `;
 
     await this.sendMail({ to, subject, html });
@@ -135,15 +138,18 @@ export class MailService implements OnModuleInit {
     const salutation = name ? `Merhaba ${name},` : 'Merhaba,';
     const subject = 'Catotel şifre yenileme bağlantısı';
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
-        <p>${salutation}</p>
-        <p>Hesabın için yeni bir şifre belirlemek üzere aşağıdaki bağlantıyı kullanabilirsin. Bağlantı kısa süre sonra geçersiz olacaktır.</p>
-        <p style="margin: 24px 0;">
-          <a href="${link}" style="background-color:#ffb673;color:#1f2933;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Yeni şifre belirle</a>
-        </p>
-        <p>Eğer bu isteği sen gerçekleştirmediysen bu e-postayı yok sayabilirsin.</p>
-        <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
-      </div>
+      <html>
+        <head><meta charset="UTF-8" /></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
+          <p>${salutation}</p>
+          <p>Hesabın için yeni bir şifre belirlemek üzere aşağıdaki bağlantıyı kullanabilirsin. Bağlantı kısa süre sonra geçersiz olacaktır.</p>
+          <p style="margin: 24px 0;">
+            <a href="${link}" style="background-color:#ffb673;color:#1f2933;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Yeni şifre belirle</a>
+          </p>
+          <p>Eğer bu isteği sen gerçekleştirmediysen bu e-postayı yok sayabilirsin.</p>
+          <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
+        </body>
+      </html>
     `;
 
     await this.sendMail({ to, subject, html });
