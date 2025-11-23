@@ -1,0 +1,35 @@
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export const $UserProfileDto = {
+    properties: {
+        id: {
+            type: 'string',
+            isRequired: true,
+            format: 'uuid',
+        },
+        email: {
+            type: 'string',
+            isRequired: true,
+        },
+        name: {
+            type: 'dictionary',
+            contains: {
+                properties: {
+                },
+            },
+            isNullable: true,
+        },
+        role: {
+            type: 'Enum',
+            isRequired: true,
+        },
+        customer: {
+            type: 'CustomerSummaryDto',
+        },
+        staff: {
+            type: 'StaffSummaryDto',
+        },
+    },
+} as const;

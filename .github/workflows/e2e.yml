@@ -1,0 +1,94 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run-detox:
+        description: 'Run Detox iOS E2E (requires macOS capacity)'
+        type: boolean
+        default: false
+
+jobs:
+  web-playwright:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: catotel_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            catotel-dashboard/package-lock.json
+            catotel-api/package-lock.json
+      - name: Install API deps
+        working-directory: catotel-api
+        run: npm install
+      - name: Prisma migrate
+        working-directory: catotel-api
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
+      - name: Build API
+        working-directory: catotel-api
+        run: npm run build
+      - name: Install dashboard deps
+        working-directory: catotel-dashboard
+        run: npm install
+      - name: Install Playwright browsers
+        working-directory: catotel-dashboard
+        run: npx playwright install --with-deps
+      - name: Build dashboard
+        working-directory: catotel-dashboard
+        run: npm run build
+      - name: Run Playwright end-to-end
+        working-directory: catotel-dashboard
+        run: npm run test:e2e:web:ci:full
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
+          ACCESS_TOKEN_SECRET: e2e_access_secret_please_change
+          REFRESH_TOKEN_SECRET: e2e_refresh_secret_please_change
+          JWT_ISSUER: catotel-e2e
+          JWT_AUDIENCE: catotel-dashboard
+          PORT: 3333
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3333/api/v1
+          E2E_BASE_URL: http://127.0.0.1:3000
+
+  detox-ios:
+    if: github.event_name == 'workflow_dispatch' && inputs.run-detox == true
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: catotel-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install AppleSimUtils
+        run: |
+          brew tap wix/brew
+          brew install applesimutils
+      - name: Install dependencies
+        run: npm install
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
+      - name: Run Detox (iOS)
+        run: npm run test:e2e:mobile

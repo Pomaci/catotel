@@ -1,0 +1,30 @@
+{
+  "name": "@catotel/api-client",
+  "version": "0.1.1",
+  "description": "Typed Catotel API client generated from the OpenAPI contract.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "generate": "openapi --input ../../catotel-api/openapi/catotel-api.json --output src/generated --client fetch --useOptions --useUnionTypes --exportSchemas true"
+  },
+  "keywords": [
+    "catotel",
+    "api",
+    "openapi"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "openapi-typescript-codegen": "^0.29.0",
+    "tsup": "^8.2.4",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+  CUSTOMER
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  ONLINE
+}
+
+enum CareTaskType {
+  FEEDING
+  CLEANING
+  MEDICATION
+  PLAYTIME
+  CHECKIN
+  CHECKOUT
+  NOTE
+}
+
+enum CareTaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum CatGender {
+  FEMALE
+  MALE
+  UNKNOWN
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  password     String
+  name         String?
+  role         UserRole    @default(CUSTOMER)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  sessions     Session[]
+  customer     CustomerProfile?
+  staff        StaffProfile?
+  passwordResetTokens PasswordResetToken[]
+  activityLogs ActivityLog[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  refreshToken String
+  userAgent    String?
+  ip           String?
+  isRevoked    Boolean  @default(false)
+  lastUsedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  expiresAt    DateTime
+
+  @@index([userId, isRevoked])
+}
+
+model CustomerProfile {
+  id          String      @id @default(cuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id])
+  phone       String?
+  preferredVet String?
+  address     String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes       String?
+  cats        Cat[]
+  reservations Reservation[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model StaffProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  position  String?
+  phone     String?
+  bio       String?
+  isActive  Boolean  @default(true)
+  tasks     CareTask[] @relation("TaskAssignee")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Cat {
+  id            String            @id @default(cuid())
+  customerId    String
+  customer      CustomerProfile   @relation(fields: [customerId], references: [id])
+  name          String
+  breed         String?
+  gender        CatGender         @default(UNKNOWN)
+  birthDate     DateTime?
+  weightKg      Decimal?          @db.Decimal(4, 1)
+  dietaryNotes  String?
+  medicalNotes  String?
+  photoUrl      String?
+  reservations  ReservationCat[]
+  tasks         CareTask[]        @relation("TaskCat")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([customerId])
+}
+
+model Room {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  capacity    Int        @default(1)
+  nightlyRate Decimal    @db.Decimal(7, 2)
+  amenities   Json?
+  isActive    Boolean    @default(true)
+  reservations Reservation[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model AddonService {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal    @db.Decimal(7, 2)
+  isActive    Boolean    @default(true)
+  reservations ReservationService[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Reservation {
+  id              String              @id @default(cuid())
+  code            String              @unique
+  customerId      String
+  customer        CustomerProfile     @relation(fields: [customerId], references: [id])
+  roomId          String
+  room            Room                @relation(fields: [roomId], references: [id])
+  status          ReservationStatus   @default(PENDING)
+  checkIn         DateTime
+  checkOut        DateTime
+  totalPrice      Decimal             @db.Decimal(10, 2)
+  specialRequests String?
+  cats            ReservationCat[]
+  services        ReservationService[]
+  payments        Payment[]
+  tasks           CareTask[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([customerId])
+  @@index([roomId])
+}
+
+model ReservationCat {
+  reservationId String
+  catId         String
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  cat           Cat         @relation(fields: [catId], references: [id])
+
+  @@id([reservationId, catId])
+}
+
+model ReservationService {
+  id             String        @id @default(cuid())
+  reservationId  String
+  serviceId      String
+  reservation    Reservation   @relation(fields: [reservationId], references: [id])
+  service        AddonService  @relation(fields: [serviceId], references: [id])
+  quantity       Int           @default(1)
+  unitPrice      Decimal       @db.Decimal(7, 2)
+  createdAt      DateTime      @default(now())
+}
+
+model Payment {
+  id            String          @id @default(cuid())
+  reservationId String
+  reservation   Reservation     @relation(fields: [reservationId], references: [id])
+  amount        Decimal         @db.Decimal(10, 2)
+  method        PaymentMethod
+  status        PaymentStatus   @default(PENDING)
+  transactionRef String?
+  processedAt   DateTime?       @default(now())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([reservationId])
+}
+
+model CareTask {
+  id             String          @id @default(cuid())
+  reservationId  String?
+  reservation    Reservation?    @relation(fields: [reservationId], references: [id])
+  catId          String?
+  cat            Cat?            @relation("TaskCat", fields: [catId], references: [id])
+  assignedStaffId String?
+  assignedStaff  StaffProfile?   @relation("TaskAssignee", fields: [assignedStaffId], references: [id])
+  type           CareTaskType
+  status         CareTaskStatus  @default(OPEN)
+  scheduledAt    DateTime?
+  completedAt    DateTime?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([reservationId])
+  @@index([assignedStaffId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  context   Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}

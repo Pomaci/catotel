@@ -1,0 +1,44 @@
+# Node / JS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.tsbuildinfo
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+web-build/
+coverage/
+test-results/
+playwright-report/
+.expo/
+expo-env.d.ts
+.metro-health-check*
+
+# Native / Expo
+ios/
+android/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local data and caches
+logs/
+*.log
+*.pid
+*.pid.lock
+catotel-infra-check/redisdata/
