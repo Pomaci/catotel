@@ -213,7 +213,7 @@ model Payment {
   method        PaymentMethod
   status        PaymentStatus   @default(PENDING)
   transactionRef String?
-  processedAt   DateTime?       @default(now())
+  processedAt   DateTime?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
