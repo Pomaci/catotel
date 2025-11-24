@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
@@ -20,7 +21,7 @@ export class RoomsService {
         name: dto.name,
         description: dto.description,
         capacity: dto.capacity,
-        nightlyRate: dto.nightlyRate,
+        nightlyRate: new Prisma.Decimal(dto.nightlyRate),
         amenities: dto.amenities,
         isActive: dto.isActive ?? true,
       },
@@ -32,10 +33,14 @@ export class RoomsService {
     if (!existing) {
       throw new NotFoundException('Room not found');
     }
+    const { nightlyRate, ...rest } = dto;
     return this.prisma.room.update({
       where: { id },
       data: {
-        ...dto,
+        ...rest,
+        ...(nightlyRate !== undefined
+          ? { nightlyRate: new Prisma.Decimal(nightlyRate) }
+          : {}),
       },
     });
   }

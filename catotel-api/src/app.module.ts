@@ -65,7 +65,6 @@ import { MailModule } from './mail/mail.module';
   controllers: [AppController],
   providers: [
     AppService,
-    PrismaService,
     {
       provide: APP_GUARD,
       useClass: RateLimitGuard,

@@ -42,7 +42,12 @@ async function bootstrap() {
       callback(new Error(`CORS blocked origin: ${origin ?? 'unknown'}`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-Id',
+      'X-CSRF-Token',
+    ],
     credentials: true,
   };
 

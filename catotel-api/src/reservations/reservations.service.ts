@@ -111,7 +111,8 @@ export class ReservationsService {
     if (nights <= 0) {
       nights = 1;
     }
-    let totalPrice = Number(room.nightlyRate) * nights;
+    const nightlyRate = new Prisma.Decimal(room.nightlyRate);
+    let totalPrice = nightlyRate.mul(nights);
 
     const addons =
       dto.addons && dto.addons.length
@@ -127,7 +128,9 @@ export class ReservationsService {
     if (addons.length) {
       for (const addon of addons) {
         const requested = dto.addons!.find((a) => a.serviceId === addon.id)!;
-        totalPrice += Number(addon.price) * requested.quantity;
+        totalPrice = totalPrice.add(
+          new Prisma.Decimal(addon.price).mul(requested.quantity),
+        );
         reservationServices.push({
           serviceId: addon.id,
           quantity: requested.quantity,
@@ -165,7 +168,7 @@ export class ReservationsService {
             roomId: room.id,
             checkIn,
             checkOut,
-            totalPrice,
+        totalPrice,
             specialRequests: dto.specialRequests,
             cats: {
               createMany: {

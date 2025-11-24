@@ -8,6 +8,7 @@ let refreshInFlight: Promise<AuthTokens | null> | null = null;
 let tokensUpdatedListener:
   | ((tokens: AuthTokens | null) => Promise<void> | void)
   | null = null;
+let consecutiveAuthFailures = 0;
 
 export function setApiAccessToken(token: string | null) {
   currentAccessToken = token;
@@ -76,13 +77,23 @@ export async function apiRequest<T>(
 
   let { response, data } = await doFetch();
 
-  if (
+  const refreshed =
     response.status === 401 &&
     auth &&
     !path.includes("/auth/refresh") &&
-    (await refreshTokens())
-  ) {
+    (await refreshTokens());
+
+  if (refreshed) {
     ({ response, data } = await doFetch());
+  }
+
+  if (response.status === 401 && !refreshed) {
+    consecutiveAuthFailures += 1;
+    if (consecutiveAuthFailures >= 2) {
+      await handleRefreshFailure();
+    }
+  } else {
+    consecutiveAuthFailures = 0;
   }
 
   if (!response.ok || response.status === 401) {

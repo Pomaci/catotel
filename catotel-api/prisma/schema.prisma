@@ -75,12 +75,15 @@ model User {
 
 model Session {
   id           String   @id @default(uuid())
+  jti          String   @unique @default(uuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id])
   refreshToken String
   userAgent    String?
   ip           String?
   isRevoked    Boolean  @default(false)
+  revokedAt    DateTime?
+  revokedReason String?
   lastUsedAt   DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

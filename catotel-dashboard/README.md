@@ -4,12 +4,12 @@ Catotel Command Center is a Next.js 14 app that fronts the Catotel backend throu
 
 ### Features
 
-- **Role-aware operations hub** – `AuthContext` issues HttpOnly cookies via internal `/api/auth/*` handlers, while React Query hooks (`useHotelData`) surface customer profiles, cats, rooms, reservations, and staff care tasks with full typing from the shared client package.
-- **Modern dashboard modules** – Overview (customer form), Cats, Rooms, Reservations, Tasks, and Security sections render gradient cards, handle loading/error states, and trigger CSRF-protected mutations such as profile updates, cat CRUD, reservation creation, and task status changes.
-- **Admin kullanıcı yönetimi** – Admin rolündeki kullanıcılar, yeni personel yöneticisi/admin hesapları oluşturabilir, mevcut kullanıcıların rolünü değiştirebilir ve müşteri/personel profili durumlarını tek tablo üzerinden izleyebilir.
-- **Security center** – The Security section exposes “Token Yenile”, “Çıkış Yap”, and “Tüm Oturumları Kapat” actions that call the backend through the proxy, plus a live session list so operators can audit active devices.
-- **Typed data + caching** – React Query provides optimistic revalidation and cache invalidation, while helper hooks automatically re-fetch affected queries after every mutation.
-- **E2E confidence** – Playwright scripts cover registration/login/negative auth flows and assert the presence of the new dashboard panes; Detox scaffolding is prepared for the mobile client once a staging backend is wired.
+- **Role-aware operations hub** — `AuthContext` issues HttpOnly cookies via internal `/api/auth/*` handlers, while React Query hooks (`useHotelData`) surface customer profiles, cats, rooms, reservations, and staff care tasks with full typing from the shared client package.
+- **Modern dashboard modules** — Overview (customer form), Cats, Rooms, Reservations, Tasks, and Security sections render gradient cards, handle loading/error states, and trigger CSRF-protected mutations such as profile updates, cat CRUD, reservation creation, and task status changes.
+- **Admin kullanıcı yönetimi** — Admin rolündeki kullanıcılar, yeni personel/manager/admin hesapları oluşturabilir, mevcut kullanıcıların rollerini değiştirebilir ve müşteri/personel profili durumlarını tek tablo üzerinden izleyebilir.
+- **Security center** — Security sekmesi “Token Yenile”, “Çıkış Yap”, ve “Tüm Oturumları Kapat” aksiyonlarını proxy üzerinden backend’e iletir ve aktif oturum listesini gösterir.
+- **Typed data + caching** — React Query provides optimistic revalidation and cache invalidation, while helper hooks automatically re-fetch affected queries after every mutation.
+- **E2E confidence** — Playwright scripts cover registration/login/negative auth flows and assert the presence of the new dashboard panes; Detox scaffolding is prepared for the mobile client once a staging backend is wired.
 
 ### Secure Cookie Model
 
@@ -18,6 +18,7 @@ Catotel Command Center is a Next.js 14 app that fronts the Catotel backend throu
 - `/api/auth/logout` and `/api/auth/logout-all` notify the backend and clear cookies locally.
 - `middleware.ts` protects `/dashboard` (redirects anonymous users) and keeps authenticated users away from `/`.
 - `/api/auth/csrf` issues a double-submit CSRF token derived from the user's refresh token/CSRF secret; the shared `clientRequest` helper injects `X-CSRF-Token` for every mutating call and state-changing routes reject missing/invalid tokens.
+- If you call the backend directly from a browser (bypassing this proxy), ensure your origin is whitelisted and send `X-CSRF-Token`; backend CORS now allows that header for CSRF-protected endpoints.
 
 ### Development
 
@@ -37,10 +38,10 @@ E2E_BASE_URL=http://localhost:3100 npm run test:e2e:web
 
 ### Admin hesapları
 
-Self‑service kayıtlar her zaman `CUSTOMER` rolü ile açılır. İlk admin hesabını başlatmak için en hızlı yol, veritabanında ilgili kullanıcının rolünü güncellemektir:
+Self-service kayıtlar her zaman `CUSTOMER` rolü ile açılır. İlk admin hesabını başlatmak için en hızlı yol, veritabanında ilgili kullanıcının rolünü güncellemektir:
 
 ```sql
 UPDATE "User" SET role = 'ADMIN' WHERE email = 'ilk.admin@mail.com';
 ```
 
-Sonrasında dashboard’a giriş yapan admin kullanıcı, **Kullanıcı Yönetimi** bölümünden yeni staff/manager/admin hesapları oluşturabilir ve mevcut roller üzerinde değişiklik yapabilir.
+Sonrasında dashboard'ta giriş yapan admin kullanıcı, **Kullanıcı Yönetimi** bölümünden yeni staff/manager/admin hesapları oluşturabilir ve mevcut roller üzerinde değişiklik yapabilir.

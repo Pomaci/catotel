@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setState((s) => ({
         ...s,
-        error: toErrorMessage(err, "Profil bilgileri alÄ±namadÄ±."),
+        error: toErrorMessage(err, "Profil bilgileri alınamadı.."),
       }));
     }
   }, []);
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) {
           setState((s) => ({
             ...s,
-            error: toErrorMessage(err, "KayÄ±tlÄ± oturum okunamadÄ±."),
+            error: toErrorMessage(err, "Kayıtlı oturum okunamadı.."),
           }));
         }
       } finally {
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState((s) => ({
           ...s,
           loading: false,
-          error: toErrorMessage(err, "Kayit islemi basarisiz."),
+          error: toErrorMessage(err, "Kayıt işlemi başarısız."),
         }));
         throw err;
       }
@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!state.refreshToken) {
       setState((s) => ({
         ...s,
-        error: "KayÄ±tlÄ± bir refresh token bulunamadÄ±.",
+        error: "Kayıtlı bir refresh token bulunamadı..",
       }));
       return;
     }

@@ -41,10 +41,10 @@ export class AuthController {
   async login(@Req() req: Request, @Body() body: LoginDto) {
     const userAgent: string =
       (req.headers['user-agent'] as string) ?? 'Unknown';
-    const ip: string =
-      (req.headers['x-forwarded-for'] as string) ??
-      (req.connection?.remoteAddress as string) ??
-      'Unknown';
+    const ip =
+      (Array.isArray(req.ips) && req.ips.length
+        ? req.ips[0]
+        : req.ip || (req.headers['x-forwarded-for'] as string)) ?? 'Unknown';
 
     return this.authService.login(body.email, body.password, userAgent, ip);
   }

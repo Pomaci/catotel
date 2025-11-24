@@ -1,18 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { jwtDecode } from 'jwt-decode';
 
 const ACCESS_COOKIE = 'catotel_access';
 const PROTECTED_PATHS = ['/dashboard'];
 
 function decodeJwtPayload(token: string): { exp?: number } | null {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = parts[1]!;
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
-    const json = atob(padded);
-    return JSON.parse(json);
+    return jwtDecode<{ exp?: number }>(token);
   } catch {
     return null;
   }
