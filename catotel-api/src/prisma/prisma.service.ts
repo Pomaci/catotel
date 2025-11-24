@@ -1,5 +1,66 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PaymentStatus, PrismaClient } from '@prisma/client';
+import { PaymentStatus, Prisma, PrismaClient } from '@prisma/client';
+
+const paymentProcessedAtExtension = Prisma.defineExtension({
+  name: 'paymentProcessedAt',
+  query: {
+    payment: {
+      create({ args, query }) {
+        stampData(args.data);
+        return query(args);
+      },
+      createMany({ args, query }) {
+        stampMany(args.data);
+        return query(args);
+      },
+      update({ args, query }) {
+        stampData(args.data);
+        return query(args);
+      },
+      updateMany({ args, query }) {
+        stampMany(args.data);
+        return query(args);
+      },
+      upsert({ args, query }) {
+        stampData(args.create);
+        stampData(args.update);
+        return query(args);
+      },
+    },
+  },
+});
+
+function stampMany(data: unknown) {
+  if (Array.isArray(data)) {
+    data.forEach(stampData);
+  } else {
+    stampData(data);
+  }
+}
+
+function stampData(data: unknown) {
+  if (!data || typeof data !== 'object') {
+    return;
+  }
+
+  const payload = data as Record<string, unknown>;
+  const status = payload.status as PaymentStatus | undefined;
+  if (!status) {
+    return;
+  }
+
+  if (
+    status === PaymentStatus.PAID ||
+    status === PaymentStatus.FAILED ||
+    status === PaymentStatus.REFUNDED
+  ) {
+    if (payload.processedAt === undefined) {
+      payload.processedAt = new Date();
+    }
+  } else if (status === PaymentStatus.PENDING) {
+    payload.processedAt = null;
+  }
+}
 
 @Injectable()
 export class PrismaService
@@ -8,52 +69,8 @@ export class PrismaService
 {
   constructor() {
     super();
-    this.$use(async (params, next) => {
-      if (params.model !== 'Payment' || !params.args?.data) {
-        return next(params);
-      }
-
-      const stampProcessedAt = (payload: Record<string, unknown>) => {
-        const status = payload.status as PaymentStatus | undefined;
-        if (!status) {
-          return;
-        }
-
-        if (
-          status === PaymentStatus.PAID ||
-          status === PaymentStatus.FAILED ||
-          status === PaymentStatus.REFUNDED
-        ) {
-          if (payload.processedAt === undefined) {
-            payload.processedAt = new Date();
-          }
-        } else if (status === PaymentStatus.PENDING) {
-          payload.processedAt = null;
-        }
-      };
-
-      const { action, args } = params;
-
-      if (action === 'create' || action === 'update' || action === 'updateMany') {
-        stampProcessedAt(args.data as Record<string, unknown>);
-      } else if (action === 'createMany') {
-        const data = args.data as Record<string, unknown> | Record<string, unknown>[];
-        if (Array.isArray(data)) {
-          data.forEach(stampProcessedAt);
-        } else {
-          stampProcessedAt(data);
-        }
-      } else if (action === 'upsert') {
-        if (args.data?.create) {
-          stampProcessedAt(args.data.create as Record<string, unknown>);
-        }
-        if (args.data?.update) {
-          stampProcessedAt(args.data.update as Record<string, unknown>);
-        }
-      }
-
-      return next(params);
-    });
+    const extended = this.$extends(paymentProcessedAtExtension);
+    Object.assign(this, extended);
   }
 
   async onModuleInit() {

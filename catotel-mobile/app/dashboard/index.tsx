@@ -29,6 +29,29 @@ export default function DashboardScreen() {
   const { profile, reservations, rooms, tasks, loading, canManageTasks } =
     useDashboardData();
 
+  const isAdmin = useMemo(
+    () => (user?.role ?? "").toUpperCase() === "ADMIN",
+    [user?.role],
+  );
+
+  const occupancy = useMemo(() => {
+    if (!rooms.length) return 0;
+    const today = new Date();
+    const active = reservations.filter((res) => isActiveDuringDay(res, today));
+    const cats = active.reduce(
+      (sum, res) => sum + (res.cats?.length ?? 1),
+      0,
+    );
+    return Math.min(100, Math.round((cats / rooms.length) * 100));
+  }, [reservations, rooms]);
+
+  const catsInside = useMemo(() => {
+    const today = new Date();
+    return reservations
+      .filter((res) => isActiveDuringDay(res, today))
+      .reduce((sum, res) => sum + (res.cats?.length ?? 1), 0);
+  }, [reservations]);
+
   if (bootstrapping) {
     return (
       <Screen scrollable={false}>
@@ -42,8 +65,6 @@ export default function DashboardScreen() {
   if (!accessToken) {
     return <Redirect href="/" />;
   }
-
-  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
 
   if (!isAdmin) {
     return (
@@ -67,24 +88,6 @@ export default function DashboardScreen() {
     profile?.user.name ||
     user?.email ||
     "Yonetici";
-
-  const occupancy = useMemo(() => {
-    if (!rooms.length) return 0;
-    const today = new Date();
-    const active = reservations.filter((res) => isActiveDuringDay(res, today));
-    const cats = active.reduce(
-      (sum, res) => sum + (res.cats?.length ?? 1),
-      0,
-    );
-    return Math.min(100, Math.round((cats / rooms.length) * 100));
-  }, [reservations, rooms]);
-
-  const catsInside = useMemo(() => {
-    const today = new Date();
-    return reservations
-      .filter((res) => isActiveDuringDay(res, today))
-      .reduce((sum, res) => sum + (res.cats?.length ?? 1), 0);
-  }, [reservations]);
 
   return (
     <Screen>
