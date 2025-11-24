@@ -1,5 +1,6 @@
 import { API_BASE } from "./env";
 import type { AuthTokens } from "@/types/auth";
+import { clearTokens } from "@/lib/storage";
 
 let currentAccessToken: string | null = null;
 let currentRefreshToken: string | null = null;
@@ -127,6 +128,7 @@ async function refreshTokens(): Promise<AuthTokens | null> {
         await notifyTokens(tokens);
         return tokens;
       } catch {
+        await handleRefreshFailure();
         return null;
       } finally {
         refreshInFlight = null;
@@ -135,4 +137,11 @@ async function refreshTokens(): Promise<AuthTokens | null> {
   }
 
   return refreshInFlight;
+}
+
+async function handleRefreshFailure() {
+  currentAccessToken = null;
+  currentRefreshToken = null;
+  await clearTokens();
+  await notifyTokens(null);
 }

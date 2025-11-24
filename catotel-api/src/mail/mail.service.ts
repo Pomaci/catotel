@@ -14,12 +14,15 @@ export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter | null = null;
   private readonly fromAddress: string | null;
-  private readonly isEnabled: boolean;
+  private mailEnabled: boolean;
+  private mailReady = false;
 
   constructor(private readonly config: ConfigService<EnvVars>) {
-    this.isEnabled = Boolean(this.config.get('MAIL_ENABLED', { infer: true }));
+    this.mailEnabled = Boolean(
+      this.config.get('MAIL_ENABLED', { infer: true }),
+    );
 
-    if (!this.isEnabled) {
+    if (!this.mailEnabled) {
       this.logger.warn(
         'Mail service disabled. Set MAIL_ENABLED=true and configure SMTP settings to enable emails.',
       );
@@ -31,24 +34,30 @@ export class MailService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    if (!this.isEnabled) {
+    if (!this.mailEnabled) {
       return;
     }
 
     try {
       await this.initializeTransporter();
+      this.mailReady = true;
       this.logger.log('SMTP transporter verified successfully.');
     } catch (error) {
       this.logger.error(
         'Failed to initialize SMTP transporter. Emails will not be delivered.',
         error instanceof Error ? error.stack : String(error),
       );
-      throw error;
+      this.mailReady = false;
+      this.mailEnabled = false;
+      this.transporter = null;
+      this.logger.warn(
+        'Mail service disabled due to SMTP verification failure.',
+      );
     }
   }
 
   get enabled() {
-    return this.isEnabled;
+    return this.mailEnabled && this.mailReady;
   }
 
   private getEnv<Key extends keyof EnvVars>(
@@ -87,12 +96,15 @@ export class MailService implements OnModuleInit {
   }
 
   async sendMail(options: MailPayload) {
-    if (!this.isEnabled || !this.fromAddress) {
+    if (!this.mailEnabled || !this.mailReady || !this.fromAddress) {
       this.logger.debug('Mail disabled. Skipping sendMail call.');
       return;
     }
     if (!this.transporter) {
-      throw new Error('Mail transporter is not initialized yet.');
+      this.logger.warn(
+        'Mail transporter is not initialized; skipping email send.',
+      );
+      return;
     }
 
     try {
@@ -112,7 +124,7 @@ export class MailService implements OnModuleInit {
   }
 
   async sendWelcomeEmail(to: string, name?: string) {
-    if (!this.isEnabled) {
+    if (!this.enabled) {
       return;
     }
     const subject = 'Miaow Hotel ekibinden merhaba';
@@ -132,7 +144,7 @@ export class MailService implements OnModuleInit {
   }
 
   async sendPasswordResetEmail(to: string, link: string, name?: string) {
-    if (!this.isEnabled) {
+    if (!this.enabled) {
       return;
     }
     const salutation = name ? `Merhaba ${name},` : 'Merhaba,';

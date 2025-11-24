@@ -56,6 +56,16 @@ export async function clientRequest<T>(
   }
 
   if (!response.ok) {
+    if (response.status === 403 && options?.csrf) {
+      // Attempt to re-acquire CSRF token and retry once
+      await fetch('/api/auth/csrf', { credentials: 'include' }).catch(() => {});
+      const csrfToken = readClientCsrfToken();
+      if (csrfToken && options?.retry !== false) {
+        headers.set('X-CSRF-Token', csrfToken);
+        return clientRequest<T>(path, { ...init, headers }, { ...options, retry: false });
+      }
+    }
+
     const payload = (await parseBody(response)) ?? {};
     const message =
       typeof payload.message === 'string'

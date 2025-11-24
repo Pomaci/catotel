@@ -68,9 +68,9 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor() {
-    super();
-    const extended = this.$extends(paymentProcessedAtExtension);
-    Object.assign(this, extended);
+    const base = new PrismaClient();
+    const extended = base.$extends(paymentProcessedAtExtension);
+    return extended as unknown as PrismaService;
   }
 
   async onModuleInit() {

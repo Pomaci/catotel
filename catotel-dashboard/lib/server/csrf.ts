@@ -51,11 +51,23 @@ export function verifyCsrfToken(request: Request) {
 }
 
 export function requireCsrfToken(request: Request) {
-  if (!verifyCsrfToken(request)) {
-    return NextResponse.json(
-      { message: 'CSRF validation failed' },
-      { status: 403 },
-    );
+  if (verifyCsrfToken(request)) {
+    return null;
   }
-  return null;
+
+  // Try to auto-heal by issuing a new token once
+  const token = ensureCsrfToken();
+  const retrySentToken =
+    request.headers.get('x-csrf-token') ??
+    headers().get('x-csrf-token') ??
+    null;
+
+  if (retrySentToken && timingSafeEqual(Buffer.from(retrySentToken), Buffer.from(token))) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { message: 'CSRF validation failed' },
+    { status: 403 },
+  );
 }

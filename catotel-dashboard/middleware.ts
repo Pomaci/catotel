@@ -19,27 +19,30 @@ function redirectToLogin(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
   const isProtected = isProtectedPath(pathname);
 
-  if (isProtected) {
-    const meResponse = await fetch(new URL('/api/auth/me', request.url), {
+  let meResponse: Response | null = null;
+  const fetchMe = async () => {
+    if (meResponse) return meResponse;
+    meResponse = await fetch(new URL('/api/auth/me', request.url), {
       headers: {
         cookie: request.headers.get('cookie') ?? '',
       },
+      cache: 'no-store',
     });
-    if (!meResponse.ok) {
+    return meResponse;
+  };
+
+  if (isProtected) {
+    const res = await fetchMe();
+    if (!res.ok) {
       return redirectToLogin(request);
     }
   }
 
   if (pathname === '/') {
-    const meResponse = await fetch(new URL('/api/auth/me', request.url), {
-      headers: {
-        cookie: request.headers.get('cookie') ?? '',
-      },
-    });
-    if (meResponse.ok) {
+    const res = await fetchMe();
+    if (res.ok) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }

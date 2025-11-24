@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
       email: body.email,
       password: body.password,
     });
-    console.log(response);
     setAuthCookies(response);
     ensureCsrfToken();
     return NextResponse.json({ user: response.user });

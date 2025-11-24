@@ -190,6 +190,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading: false,
         error: toErrorMessage(err, "Token yenileme başarısız."),
       }));
+      await clearTokens();
+      setApiTokens(null, null);
+      setState((s) => ({
+        ...s,
+        accessToken: null,
+        refreshToken: null,
+        user: null,
+      }));
     }
   }, [handleTokens, state.refreshToken]);
 
@@ -262,3 +270,4 @@ export function useAuth() {
   }
   return ctx;
 }
+
