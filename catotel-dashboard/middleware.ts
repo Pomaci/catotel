@@ -4,6 +4,32 @@ import { NextResponse } from 'next/server';
 const ACCESS_COOKIE = 'catotel_access';
 const PROTECTED_PATHS = ['/dashboard'];
 
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1]!;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function hasValidAccessToken(request: NextRequest) {
+  const token = request.cookies.get(ACCESS_COOKIE)?.value;
+  if (!token) {
+    return false;
+  }
+  const payload = decodeJwtPayload(token);
+  if (payload?.exp && payload.exp * 1000 <= Date.now()) {
+    return false;
+  }
+  return true;
+}
+
 function isProtectedPath(pathname: string) {
   return PROTECTED_PATHS.some((path) => pathname.startsWith(path));
 }
@@ -21,28 +47,16 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = isProtectedPath(pathname);
 
-  let meResponse: Response | null = null;
-  const fetchMe = async () => {
-    if (meResponse) return meResponse;
-    meResponse = await fetch(new URL('/api/auth/me', request.url), {
-      headers: {
-        cookie: request.headers.get('cookie') ?? '',
-      },
-      cache: 'no-store',
-    });
-    return meResponse;
-  };
+  const authenticated = hasValidAccessToken(request);
 
   if (isProtected) {
-    const res = await fetchMe();
-    if (!res.ok) {
+    if (!authenticated) {
       return redirectToLogin(request);
     }
   }
 
   if (pathname === '/') {
-    const res = await fetchMe();
-    if (res.ok) {
+    if (authenticated) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
@@ -51,5 +65,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/', '/dashboard/:path*'],
 };

@@ -3,6 +3,8 @@ import { handleApiError } from '@/lib/server/api-error-response';
 import { requireCsrfToken } from '@/lib/server/csrf';
 import { backendResetPassword } from '@/lib/server/backend-auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   const csrfError = requireCsrfToken(request);
   if (csrfError) {
@@ -24,4 +26,3 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
-

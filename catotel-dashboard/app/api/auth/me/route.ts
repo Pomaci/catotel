@@ -8,6 +8,8 @@ import {
 import { handleApiError } from '@/lib/server/api-error-response';
 import { ApiError } from '@catotel/api-client';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const accessToken = getAccessTokenFromCookies();
   const activeToken = accessToken ?? (await refreshUsingCookie());

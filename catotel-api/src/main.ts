@@ -11,6 +11,7 @@ import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-option
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.enableShutdownHooks();
+  app.set('trust proxy', 1);
 
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

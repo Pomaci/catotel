@@ -138,33 +138,56 @@ export class ReservationsService {
 
     const code = `CAT-${randomBytes(3).toString('hex').toUpperCase()}`;
 
-    return this.prisma.reservation.create({
-      data: {
-        code,
-        customerId: customer.id,
-        roomId: room.id,
-        checkIn,
-        checkOut,
-        totalPrice,
-        specialRequests: dto.specialRequests,
-        cats: {
-          createMany: {
-            data: dto.catIds.map((catId) => ({ catId })),
-          },
-        },
-        services: reservationServices.length
-          ? {
-              createMany: {
-                data: reservationServices,
+    return this.prisma.$transaction(
+      async (tx) => {
+        const overlapping = await tx.reservation.findFirst({
+          where: {
+            roomId: room.id,
+            status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
+            OR: [
+              {
+                checkIn: { lt: checkOut },
+                checkOut: { gt: checkIn },
               },
-            }
-          : undefined,
+            ],
+          },
+        });
+        if (overlapping) {
+          throw new BadRequestException(
+            'Room already booked for selected dates',
+          );
+        }
+
+        return tx.reservation.create({
+          data: {
+            code,
+            customerId: customer.id,
+            roomId: room.id,
+            checkIn,
+            checkOut,
+            totalPrice,
+            specialRequests: dto.specialRequests,
+            cats: {
+              createMany: {
+                data: dto.catIds.map((catId) => ({ catId })),
+              },
+            },
+            services: reservationServices.length
+              ? {
+                  createMany: {
+                    data: reservationServices,
+                  },
+                }
+              : undefined,
+          },
+          include: {
+            room: true,
+            cats: { include: { cat: true } },
+            services: { include: { service: true } },
+          },
+        });
       },
-      include: {
-        room: true,
-        cats: { include: { cat: true } },
-        services: { include: { service: true } },
-      },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 }

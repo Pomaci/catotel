@@ -30,7 +30,17 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    this.fromAddress = this.getEnvOrThrow('MAIL_FROM');
+    const fromAddress = this.getRequiredMailSetting('MAIL_FROM');
+    if (!fromAddress) {
+      this.logger.error(
+        'MAIL_FROM is not configured; mail service will be disabled.',
+      );
+      this.mailEnabled = false;
+      this.fromAddress = null;
+      return;
+    }
+
+    this.fromAddress = fromAddress;
   }
 
   async onModuleInit() {
@@ -66,30 +76,35 @@ export class MailService implements OnModuleInit {
     return this.config.get(key, { infer: true });
   }
 
-  private getEnvOrThrow<Key extends keyof EnvVars>(
+  private getRequiredMailSetting<Key extends keyof EnvVars>(
     key: Key,
-  ): NonNullable<EnvVars[Key]> {
+  ): NonNullable<EnvVars[Key]> | null {
     const value = this.getEnv(key);
-    if (value === undefined || value === null) {
-      throw new Error(
+    if (value === undefined || value === null || value === '') {
+      this.logger.error(
         `Missing required environment variable for mail service: ${String(key)}`,
       );
+      return null;
     }
     return value as NonNullable<EnvVars[Key]>;
   }
 
   private async initializeTransporter() {
-    const host = this.getEnvOrThrow('SMTP_HOST');
-    const port = this.getEnvOrThrow('SMTP_PORT');
+    const host = this.getRequiredMailSetting('SMTP_HOST');
+    const port = this.getRequiredMailSetting('SMTP_PORT');
     const secure = Boolean(this.getEnv('SMTP_SECURE'));
-    const user = this.getEnv('SMTP_USERNAME');
-    const pass = this.getEnv('SMTP_PASSWORD');
+    const user = this.getRequiredMailSetting('SMTP_USERNAME');
+    const pass = this.getRequiredMailSetting('SMTP_PASSWORD');
+
+    if (host === null || port === null || user === null || pass === null) {
+      throw new Error('SMTP configuration is incomplete.');
+    }
 
     this.transporter = createTransport({
       host,
       port,
       secure,
-      auth: user && pass ? { user, pass } : undefined,
+      auth: { user, pass },
     });
 
     await this.transporter.verify();

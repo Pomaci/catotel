@@ -17,7 +17,7 @@ Catotel Command Center is a Next.js 14 app that fronts the Catotel backend throu
 - `/api/auth/refresh` rotates tokens via the proxy and immediately reloads the authenticated profile.
 - `/api/auth/logout` and `/api/auth/logout-all` notify the backend and clear cookies locally.
 - `middleware.ts` protects `/dashboard` (redirects anonymous users) and keeps authenticated users away from `/`.
-- `/api/auth/csrf` issues a double-submit CSRF token; the shared `clientRequest` helper injects `X-CSRF-Token` for every mutating call.
+- `/api/auth/csrf` issues a double-submit CSRF token derived from the user's refresh token/CSRF secret; the shared `clientRequest` helper injects `X-CSRF-Token` for every mutating call and state-changing routes reject missing/invalid tokens.
 
 ### Development
 

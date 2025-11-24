@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/server/backend-client';
+import { backendRequestWithRefresh } from '@/lib/server/backend-auth-refresh';
 import { handleApiError } from '@/lib/server/api-error-response';
 
 export async function GET(request: Request) {
@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const includeInactive = searchParams.get('includeInactive') === 'true';
 
   try {
-    const rooms = await backendRequest({
+    const rooms = await backendRequestWithRefresh({
       method: 'GET',
       url: '/rooms',
       query: includeInactive ? { includeInactive: 'true' } : undefined,

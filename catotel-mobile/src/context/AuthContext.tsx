@@ -156,20 +156,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [handleTokens],
   );
 
-  const register = useCallback(async (payload: RegisterPayload) => {
-    setState((s) => ({ ...s, loading: true, error: null }));
-    try {
-      await api.register(payload);
-      setState((s) => ({ ...s, loading: false }));
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        loading: false,
-        error: toErrorMessage(err, "Kayıt işlemi başarısız."),
-      }));
-      throw err;
-    }
-  }, []);
+  const register = useCallback(
+    async (payload: RegisterPayload) => {
+      setState((s) => ({ ...s, loading: true, error: null }));
+      try {
+        await api.register(payload);
+        const response = await api.login({
+          email: payload.email,
+          password: payload.password,
+        });
+        await handleTokens(response);
+        setState((s) => ({ ...s, user: response.user }));
+      } catch (err) {
+        setState((s) => ({
+          ...s,
+          loading: false,
+          error: toErrorMessage(err, "Kayit islemi basarisiz."),
+        }));
+        throw err;
+      }
+    },
+    [handleTokens],
+  );
 
   const refresh = useCallback(async () => {
     if (!state.refreshToken) {

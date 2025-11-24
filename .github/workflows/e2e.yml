@@ -12,7 +12,34 @@ on:
         default: false
 
 jobs:
+  openapi-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            catotel-api/package-lock.json
+            catotel-clients/api-client/package-lock.json
+      - name: Install API deps
+        working-directory: catotel-api
+        run: npm ci
+      - name: Generate OpenAPI schema
+        working-directory: catotel-api
+        run: npm run openapi:json
+      - name: Install API client deps
+        working-directory: catotel-clients/api-client
+        run: npm ci
+      - name: Regenerate API client
+        working-directory: catotel-clients/api-client
+        run: npm run generate
+      - name: Fail if OpenAPI artifacts are out of date
+        run: git diff --exit-code
+
   web-playwright:
+    needs: openapi-client
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -45,6 +72,13 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
+      - name: Seed admin user for E2E
+        working-directory: catotel-api
+        run: npm run seed:e2e
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
+          E2E_ADMIN_EMAIL: admin@catotel.test
+          E2E_ADMIN_PASSWORD: Admin123!
       - name: Build API
         working-directory: catotel-api
         run: npm run build

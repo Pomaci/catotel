@@ -1,5 +1,4 @@
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
 
 const ACCESS_TOKEN_KEY = "catotel_access";
 const REFRESH_TOKEN_KEY = "catotel_refresh";
@@ -19,13 +18,6 @@ async function hasSecureStore() {
   return secureStoreAvailable;
 }
 
-function getWebStorage() {
-  if (Platform.OS === "web" && typeof window !== "undefined") {
-    return window.localStorage;
-  }
-  return null;
-}
-
 async function read(key: string) {
   if (await hasSecureStore()) {
     const value = await SecureStore.getItemAsync(key);
@@ -34,14 +26,7 @@ async function read(key: string) {
     }
   }
 
-  const localStorage = getWebStorage();
-  if (localStorage) {
-    const value = localStorage.getItem(key);
-    if (value !== null) {
-      return value;
-    }
-  }
-
+  // On platforms without a secure store (e.g. web), fall back to an in-memory store only.
   return memoryStore.get(key) ?? null;
 }
 
@@ -53,14 +38,8 @@ async function write(key: string, value: string | null) {
       await SecureStore.setItemAsync(key, value);
     }
   } else {
-    const localStorage = getWebStorage();
-    if (localStorage) {
-      if (value === null) {
-        localStorage.removeItem(key);
-      } else {
-        localStorage.setItem(key, value);
-      }
-    } else if (value === null) {
+    // Avoid persisting tokens to web storage; keep them ephemeral in memory.
+    if (value === null) {
       memoryStore.delete(key);
     } else {
       memoryStore.set(key, value);

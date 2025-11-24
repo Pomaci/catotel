@@ -5,7 +5,9 @@ import {
   setAuthCookies,
 } from '@/lib/server/auth-cookies';
 import { handleApiError } from '@/lib/server/api-error-response';
-import { requireCsrfToken } from '@/lib/server/csrf';
+import { ensureCsrfToken, requireCsrfToken } from '@/lib/server/csrf';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const csrfError = requireCsrfToken(request);
@@ -21,6 +23,7 @@ export async function POST(request: Request) {
   try {
     const tokens = await backendRefresh({ refresh_token: refreshToken });
     setAuthCookies(tokens);
+    ensureCsrfToken();
     return NextResponse.json({ ok: true });
   } catch (error) {
     return handleApiError(error);

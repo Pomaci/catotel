@@ -5,7 +5,9 @@ import {
   getAccessTokenFromCookies,
 } from '@/lib/server/auth-cookies';
 import { handleApiError } from '@/lib/server/api-error-response';
-import { requireCsrfToken } from '@/lib/server/csrf';
+import { ensureCsrfToken, requireCsrfToken } from '@/lib/server/csrf';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const csrfError = requireCsrfToken(request);
@@ -20,9 +22,11 @@ export async function POST(request: Request) {
       await backendLogoutAll(accessToken);
     }
     clearAuthCookies();
+    ensureCsrfToken();
     return NextResponse.json({ ok: true });
   } catch (error) {
     clearAuthCookies();
+    ensureCsrfToken();
     return handleApiError(error);
   }
 }

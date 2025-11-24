@@ -15,6 +15,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "openapi:json": "ts-node -r tsconfig-paths/register src/tools/generate-openapi.ts",
+    "seed:e2e": "ts-node -r tsconfig-paths/register prisma/seed-e2e.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

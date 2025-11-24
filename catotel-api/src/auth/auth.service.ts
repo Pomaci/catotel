@@ -179,9 +179,14 @@ export class AuthService {
     },
   ) {
     const hashedRefresh = await this.hashToken(params.refreshToken);
+    const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       const activeSessions = await tx.session.findMany({
-        where: { userId, isRevoked: false },
+        where: {
+          userId,
+          isRevoked: false,
+          expiresAt: { gt: now },
+        },
         orderBy: { createdAt: 'asc' },
       });
 
@@ -190,7 +195,7 @@ export class AuthService {
         const toRevoke = activeSessions.slice(0, overflow).map((s) => s.id);
         await tx.session.updateMany({
           where: { id: { in: toRevoke } },
-          data: { isRevoked: true, updatedAt: new Date() },
+          data: { isRevoked: true, updatedAt: now },
         });
       }
 
@@ -201,7 +206,7 @@ export class AuthService {
           userAgent: params.userAgent ?? 'Unknown',
           ip: params.ip ?? 'Unknown',
           expiresAt: params.expiresAt,
-          lastUsedAt: new Date(),
+          lastUsedAt: now,
         },
       });
     });
