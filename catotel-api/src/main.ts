@@ -8,6 +8,7 @@ import { EnvVars } from './config/config.schema';
 import { swaggerConfig, swaggerPath } from './config/swagger.config';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const app =
@@ -27,6 +28,7 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
   const configService = app.get(ConfigService<EnvVars>);
   const rawCorsOrigins = configService.getOrThrow<string | string[]>(

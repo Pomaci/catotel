@@ -14,7 +14,7 @@ describeFn('Catotel dashboard auth flows', () => {
     await page.getByRole('button', { name: /Hesabın yok mu/i }).click();
     await page.getByLabel(/Ad/i).fill('Playwright User');
     await page.getByLabel(/Email/i).fill(email);
-    await page.getByLabel(/Şifre/i).fill(password);
+    await page.getByLabel(/Ş�ifre/i).fill(password);
     await page.getByRole('button', { name: /Kayıt Ol ve Giriş Yap/i }).click();
 
     await page.waitForURL('**/dashboard');
@@ -30,7 +30,7 @@ describeFn('Catotel dashboard auth flows', () => {
   test('invalid login stays on landing and shows error', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel(/Email/i).fill('invalid@example.com');
-    await page.getByLabel(/Şifre/i).fill('wrong-password');
+    await page.getByLabel(/Ş�ifre/i).fill('wrong-password');
     await page.getByRole('button', { name: /Giriş Yap/i }).last().click();
 
     await expect(

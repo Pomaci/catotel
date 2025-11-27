@@ -1,5 +1,8 @@
-import { ApiError, type AuthTokensDto } from '@catotel/api-client';
-import type { ApiRequestOptions } from '@catotel/api-client/src/generated/core/ApiRequestOptions';
+import {
+  ApiError,
+  type ApiRequestOptions,
+  type AuthTokensDto,
+} from '@catotel/api-client';
 import { backendRequest } from './backend-client';
 import {
   clearAuthCookies,
