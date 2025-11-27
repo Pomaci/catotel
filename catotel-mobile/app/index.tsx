@@ -61,7 +61,7 @@ export default function IndexScreen() {
   const helperError = localError ?? authError;
 
   const canLogin = useMemo(
-    () => EMAIL_REGEX.test(email.trim()) && password.trim().length >= 4,
+    () => EMAIL_REGEX.test(email.trim()) && password.trim().length >= 8,
     [email, password],
   );
 

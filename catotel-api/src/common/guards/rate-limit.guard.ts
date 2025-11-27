@@ -6,7 +6,7 @@ import type { Request } from 'express';
 export class RateLimitGuard extends ThrottlerGuard {
   private readonly logger = new Logger(RateLimitGuard.name);
 
-  protected getTracker(request: Request): string {
+  protected async getTracker(request: Request): Promise<string> {
     const forwardedFor = request.headers['x-forwarded-for'];
     if (Array.isArray(forwardedFor)) {
       const first = forwardedFor.find((ip) => !!ip?.trim());
@@ -16,15 +16,16 @@ export class RateLimitGuard extends ThrottlerGuard {
     } else if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
       return forwardedFor.split(',')[0].trim();
     }
-    return request.ip;
+    const fallback = request.ip ?? request.socket?.remoteAddress ?? '';
+    return fallback || 'unknown';
   }
 
-  protected throwThrottlingException(
+  protected async throwThrottlingException(
     context: ExecutionContext,
     throttlerLimitDetail: ThrottlerLimitDetail,
   ) {
     const request = context.switchToHttp().getRequest<Request>();
-    const sourceIp = this.getTracker(request);
+    const sourceIp = await this.getTracker(request);
     this.logger.warn(
       `Rate limit exceeded for ${request.method} ${
         request.originalUrl ?? request.url

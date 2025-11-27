@@ -1,28 +1,45 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { jwtDecode } from 'jwt-decode';
+import { jwtVerify } from 'jose';
 
 const ACCESS_COOKIE = 'catotel_access';
 const PROTECTED_PATHS = ['/dashboard'];
+const encoder = new TextEncoder();
 
-function decodeJwtPayload(token: string): { exp?: number } | null {
+async function verifyJwt(token: string) {
+  const secret = process.env.ACCESS_TOKEN_SECRET;
+  if (!secret) return false;
   try {
-    return jwtDecode<{ exp?: number }>(token);
+    const { payload } = await jwtVerify(token, encoder.encode(secret), {
+      issuer: process.env.JWT_ISSUER ?? 'catotel-api',
+      audience: process.env.JWT_AUDIENCE ?? 'catotel-client',
+    });
+    if (payload?.exp && payload.exp * 1000 <= Date.now()) {
+      return false;
+    }
+    return true;
   } catch {
-    return null;
+    return false;
   }
 }
 
-function hasValidAccessToken(request: NextRequest) {
+async function hasValidAccessToken(request: NextRequest) {
   const token = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!token) {
     return false;
   }
-  const payload = decodeJwtPayload(token);
-  if (payload?.exp && payload.exp * 1000 <= Date.now()) {
+  if (await verifyJwt(token)) {
+    return true;
+  }
+  try {
+    const res = await fetch(new URL('/api/auth/me', request.url), {
+      headers: { cookie: request.headers.get('cookie') ?? '' },
+      cache: 'no-store',
+    });
+    return res.ok;
+  } catch {
     return false;
   }
-  return true;
 }
 
 function isProtectedPath(pathname: string) {
@@ -42,7 +59,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = isProtectedPath(pathname);
 
-  const authenticated = hasValidAccessToken(request);
+  const authenticated = await hasValidAccessToken(request);
 
   if (isProtected) {
     if (!authenticated) {

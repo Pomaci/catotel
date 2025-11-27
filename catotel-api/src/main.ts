@@ -7,9 +7,13 @@ import { AppModule } from './app.module';
 import { EnvVars } from './config/config.schema';
 import { swaggerConfig, swaggerPath } from './config/swagger.config';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app =
+    await NestFactory.create<NestExpressApplication>(AppModule, {
+      bufferLogs: true,
+    });
   app.enableShutdownHooks();
   app.set('trust proxy', 1);
 

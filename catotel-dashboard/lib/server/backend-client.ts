@@ -1,7 +1,9 @@
-import { OpenAPI as GeneratedOpenAPI } from '@catotel/api-client';
-import type { OpenAPIConfig } from '@catotel/api-client/src/generated/core/OpenAPI';
-import { request as apiRequest } from '@catotel/api-client/src/generated/core/request';
-import type { ApiRequestOptions } from '@catotel/api-client/src/generated/core/ApiRequestOptions';
+import {
+  OpenAPI as GeneratedOpenAPI,
+  request as apiRequest,
+  type OpenAPIConfig,
+  type ApiRequestOptions,
+} from '@catotel/api-client';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||

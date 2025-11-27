@@ -142,19 +142,16 @@ export class MailService implements OnModuleInit {
     if (!this.enabled) {
       return;
     }
-    const subject = 'Miaow Hotel ekibinden merhaba';
+    const subject = 'Catotel ekibinden merhaba';
     const salutation = name ? `Merhaba ${name},` : 'Merhaba,';
-            const html = `
+    const html = `
       <html>
         <head><meta charset="UTF-8" /></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
           <p>${salutation}</p>
-          <p>Hesabýn için yeni bir þifre belirlemek üzere aþaðýdaki baðlantýyý kullanabilirsin. Baðlantý kýsa süre sonra geçersiz olacaktýr.</p>
-          <p style="margin: 24px 0;">
-            <a href="${link}" style="background-color:#ffb673;color:#1f2933;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Yeni þifre belirle</a>
-          </p>
-          <p>Eðer bu isteði sen gerçekleþtirmediysen bu e-postayý yok sayabilirsin.</p>
-          <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
+          <p>Catotel hesabiniz hazir. Giris yapip profili tamamlayabilir ve rezervasyonlarini yonetebilirsin.</p>
+          <p>Bir sorunda bu e-postaya yanit verebilirsin.</p>
+          <p>Sevgiler,<br/>Catotel Ekibi</p>
         </body>
       </html>
     `;
@@ -167,18 +164,18 @@ export class MailService implements OnModuleInit {
       return;
     }
     const salutation = name ? `Merhaba ${name},` : 'Merhaba,';
-    const subject = 'Catotel ÅŸifre yenileme baÄŸlantÄ±sÄ±';
-            const html = `
+    const subject = 'Catotel sifre yenileme baglantisi';
+    const html = `
       <html>
         <head><meta charset="UTF-8" /></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
           <p>${salutation}</p>
-          <p>Hesabýn için yeni bir þifre belirlemek üzere aþaðýdaki baðlantýyý kullanabilirsin. Baðlantý kýsa süre sonra geçersiz olacaktýr.</p>
+          <p>Hesabin icin yeni bir sifre belirlemek uzere asagidaki baglantiyi kullanabilirsin. Baglanti kisa sure sonra gecersiz olacaktir.</p>
           <p style="margin: 24px 0;">
-            <a href="${link}" style="background-color:#ffb673;color:#1f2933;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Yeni þifre belirle</a>
+            <a href="${link}" style="background-color:#ffb673;color:#1f2933;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Yeni sifre belirle</a>
           </p>
-          <p>Eðer bu isteði sen gerçekleþtirmediysen bu e-postayý yok sayabilirsin.</p>
-          <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
+          <p>Eger bu istegi sen gerceklestirmediysen bu e-postayi yok sayabilirsin.</p>
+          <p>Sevgiler,<br/>Catotel Ekibi</p>
         </body>
       </html>
     `;

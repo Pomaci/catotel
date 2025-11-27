@@ -83,13 +83,13 @@ export class AuthService {
     const now = new Date();
     const session = await this.getSessionByJti(payload.sub, payload.jti);
 
-    const reuseDetected = async () => {
+    const reuseDetected = async (): Promise<never> => {
       await this.revokeAllSessionsForUser(payload.sub);
       throw new ForbiddenException('Refresh token reuse detected');
     };
 
     if (!session || session.userId !== payload.sub) {
-      await reuseDetected();
+      return reuseDetected();
     }
 
     const candidate = this.digestToken(rawRefreshToken);
