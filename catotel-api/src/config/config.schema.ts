@@ -1,5 +1,24 @@
 import { z } from 'zod';
 
+const booleanFromEnv = z.preprocess(
+  (value) => {
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+
+      if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+        return true;
+      }
+
+      if (['false', '0', 'no', 'n', 'off', ''].includes(normalized)) {
+        return false;
+      }
+    }
+
+    return value;
+  },
+  z.boolean(),
+);
+
 export const envSchema = z
   .object({
     PORT: z.coerce.number().default(3000),
@@ -29,10 +48,10 @@ export const envSchema = z
     RATE_LIMIT_TTL: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_LIMIT: z.coerce.number().int().positive().default(120),
 
-    MAIL_ENABLED: z.coerce.boolean().default(false),
+    MAIL_ENABLED: booleanFromEnv.default(false),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().default(587),
-    SMTP_SECURE: z.coerce.boolean().default(false),
+    SMTP_SECURE: booleanFromEnv.default(false),
     SMTP_USERNAME: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
     MAIL_FROM: z.string().optional(),

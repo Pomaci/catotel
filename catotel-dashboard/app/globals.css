@@ -154,3 +154,121 @@ textarea {
 .admin-shell[data-theme='dark'] .admin-heat-card {
   background: linear-gradient(135deg, rgba(255, 182, 115, 0.2), rgba(63, 141, 144, 0.25));
 }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.status-badge[data-variant='created'] {
+  background: linear-gradient(145deg, rgba(234, 236, 240, 0.8), rgba(249, 250, 251, 0.9));
+  color: #475467;
+  border: 1px dashed #d0d5dd;
+}
+
+.status-badge[data-variant='confirmed'] {
+  background: linear-gradient(145deg, #2563eb, #1d4ed8);
+  color: #f8fafc;
+}
+
+.status-badge[data-variant='checkin'] {
+  background: linear-gradient(145deg, #e6f7f0, #d0f0e4);
+  color: #0f9b69;
+}
+
+.status-badge[data-variant='checkout'] {
+  background: linear-gradient(145deg, #fff4e6, #ffe6cc);
+  color: #b45309;
+}
+
+.status-badge[data-variant='cancelled'] {
+  background: linear-gradient(145deg, #feecef, #ffe0e5);
+  color: #dc2626;
+}
+
+.admin-shell[data-theme='dark'] .status-badge {
+  box-shadow: none;
+}
+
+.admin-shell[data-theme='dark'] .status-badge[data-variant='created'] {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  border-color: rgba(226, 232, 240, 0.25);
+}
+
+.admin-shell[data-theme='dark'] .status-badge[data-variant='confirmed'] {
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.7), rgba(29, 78, 216, 0.7));
+  color: #e2e8f0;
+}
+
+.admin-shell[data-theme='dark'] .status-badge[data-variant='checkin'] {
+  background: rgba(16, 122, 90, 0.35);
+  color: #bbf7d0;
+}
+
+.admin-shell[data-theme='dark'] .status-badge[data-variant='checkout'] {
+  background: rgba(180, 83, 9, 0.25);
+  color: #fed7aa;
+}
+
+.admin-shell[data-theme='dark'] .status-badge[data-variant='cancelled'] {
+  background: rgba(220, 38, 38, 0.3);
+  color: #fecdd3;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-alt);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--admin-text-strong);
+}
+
+.admin-shell[data-theme='dark'] .filter-tag {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.filter-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -12px rgba(0, 0, 0, 0.35);
+  color: var(--admin-text-strong);
+}
+
+.filter-chip--active {
+  background: var(--admin-highlight);
+  color: #b54708;
+  border-color: rgba(255, 182, 115, 0.6);
+  box-shadow: 0 6px 18px -12px rgba(255, 182, 115, 0.9);
+}
+
+.admin-shell[data-theme='dark'] .filter-chip--active {
+  color: #ffddb5;
+  border-color: rgba(255, 182, 115, 0.65);
+}
