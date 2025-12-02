@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CalendarRange,
@@ -62,6 +63,18 @@ export default function ReservationsPage() {
   const [roomFilter, setRoomFilter] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<DateFilter>({ preset: "WEEK" });
   const [showFilters, setShowFilters] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => HotelApi.deleteReservation(id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["reservations"] }),
+    onError: (error: unknown) => {
+      console.error(error);
+      alert("Rezervasyon silinirken bir hata oluştu.");
+    },
+  });
 
   const filteredReservations = useMemo(() => {
     if (!reservations) return [];
@@ -90,9 +103,43 @@ export default function ReservationsPage() {
     });
   }, [reservations, searchTerm, statusFilter, roomFilter, dateFilter]);
 
+  const handleExport = () => {
+    if (!filteredReservations.length) return;
+    setExporting(true);
+    try {
+      const csv = buildReservationCsv(filteredReservations);
+      const blob = new Blob([csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `rezervasyonlar-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteReservation = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await deleteMutation.mutateAsync(id);
+    } finally {
+      setDeletingId((current) => (current === id ? null : current));
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader />
+      <PageHeader
+        onExport={handleExport}
+        exportDisabled={filteredReservations.length === 0 || isLoading}
+        exporting={exporting}
+      />
       <div className="flex items-center justify-end">
         <button
           type="button"
@@ -133,13 +180,22 @@ export default function ReservationsPage() {
         reservations={filteredReservations}
         loading={isLoading}
         error={error instanceof Error ? error.message : null}
-        onCancel={async () => Promise.resolve()}
+        onCancel={handleDeleteReservation}
+        deletingId={deletingId}
       />
     </div>
   );
 }
 
-function PageHeader() {
+function PageHeader({
+  onExport,
+  exportDisabled,
+  exporting,
+}: {
+  onExport: () => void;
+  exportDisabled: boolean;
+  exporting: boolean;
+}) {
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div>
@@ -156,10 +212,16 @@ function PageHeader() {
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-5 py-2.5 text-sm font-semibold text-[var(--admin-text-strong)] shadow-sm transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
+          onClick={onExport}
+          disabled={exportDisabled || exporting}
+          className={clsx(
+            "inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-5 py-2.5 text-sm font-semibold text-[var(--admin-text-strong)] shadow-sm transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border",
+            (exportDisabled || exporting) &&
+              "cursor-not-allowed opacity-60 hover:translate-y-0 hover:border-[var(--admin-border)] hover:text-[var(--admin-text-strong)]"
+          )}
         >
           <Download className="h-4 w-4 text-[var(--admin-muted)]" aria-hidden />
-          Dışarı Aktar (CSV / PDF)
+          {exporting ? "Dışa Aktarılıyor..." : "Dışarı Aktar (CSV)"}
         </button>
         <Link
           href="/dashboard/reservations/new"
@@ -503,12 +565,42 @@ function ReservationTable({
   loading,
   error,
   onCancel,
+  deletingId,
 }: {
   reservations: Reservation[];
   loading: boolean;
   error: string | null;
   onCancel: (id: string) => Promise<any>;
+  deletingId: string | null;
 }) {
+  const router = useRouter();
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openMenuId) return undefined;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest("[data-reservation-actions-menu='true']") ||
+        target?.closest("[data-reservation-actions-toggle='true']")
+      ) {
+        return;
+      }
+      setOpenMenuId(null);
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [openMenuId]);
+
+  const handleRowNavigation = (id: string) => {
+    router.push(`/dashboard/reservations/${id}`);
+  };
+
+  const handleDelete = async (id: string) => {
+    setOpenMenuId(null);
+    await onCancel(id);
+  };
+
   return (
     <section className="admin-surface p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -569,19 +661,33 @@ function ReservationTable({
 
             {!loading &&
               reservations.map((reservation, index) => {
-                const firstCat = reservation.cats[0]?.cat;
+                const catNames = reservation.cats
+                  .map((c) => c.cat.name)
+                  .filter(Boolean);
+                const primaryCat = reservation.cats[0]?.cat;
                 const status =
                   statusVariantMap[
                     reservation.status as keyof typeof statusVariantMap
                   ];
+                const isDeleting = deletingId === reservation.id;
                 return (
                   <tr
                     key={reservation.id}
                     className={clsx(
                       "group cursor-pointer border-t text-[var(--admin-text-strong)] transition",
                       "hover:-translate-y-[1px] hover:bg-[var(--admin-highlight-muted)]/60 hover:shadow-sm",
-                      index === 0 && "border-t-0"
+                      index === 0 && "border-t-0",
+                      openMenuId === reservation.id && "relative z-20"
                     )}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleRowNavigation(reservation.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleRowNavigation(reservation.id);
+                      }
+                    }}
                   >
                     <td className="py-4 pr-3">
                       <div className="flex items-start gap-3">
@@ -613,13 +719,18 @@ function ReservationTable({
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--admin-surface-alt)] text-[var(--admin-muted)]">
                           <Cat className="h-4 w-4" aria-hidden />
                         </div>
-                        <div>
+                        <div className="space-y-1">
                           <p className="text-sm font-semibold">
-                            {firstCat?.name ?? "Kedi yok"}
+                            {primaryCat?.name ?? "Kedi yok"}
+                            {catNames.length > 1 && (
+                              <span className="ml-2 rounded-full bg-[var(--admin-surface-alt)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.3em] admin-muted">
+                                +{catNames.length - 1}
+                              </span>
+                            )}
                           </p>
-                          {firstCat?.breed && (
+                          {primaryCat?.breed && (
                             <p className="text-xs admin-muted">
-                              Cins: {firstCat.breed}
+                              Cins: {primaryCat.breed}
                             </p>
                           )}
                         </div>
@@ -666,33 +777,63 @@ function ReservationTable({
                     <td className="py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link
-                          href={`/dashboard/reservations/${reservation.id}/edit`}
-                          className="hidden items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold text-[var(--admin-muted)] transition hover:-translate-y-0.5 hover:text-peach-500 group-hover:inline-flex"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" aria-hidden />
-                          Düzenle
-                        </Link>
-                        <button
-                          type="button"
-                          className="hidden items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold text-[var(--admin-muted)] transition hover:-translate-y-0.5 hover:text-red-500 group-hover:inline-flex"
-                          onClick={() => onCancel(reservation.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                          Sil
-                        </button>
-                        <Link
                           href={`/dashboard/reservations/${reservation.id}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold text-[var(--admin-text-strong)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
                         >
                           Detay
                         </Link>
-                        <button
-                          type="button"
-                          aria-label="Daha fazla"
-                          className="rounded-full border bg-[var(--admin-surface-alt)] p-2 text-[var(--admin-muted)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
+                        <div
+                          className="relative"
+                          data-reservation-actions-menu="true"
                         >
-                          <MoreHorizontal className="h-4 w-4" aria-hidden />
-                        </button>
+                          <button
+                            type="button"
+                            aria-label="Daha fazla"
+                            aria-expanded={openMenuId === reservation.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(
+                                openMenuId === reservation.id
+                                  ? null
+                                  : reservation.id
+                              );
+                            }}
+                            className="rounded-full border bg-[var(--admin-surface-alt)] p-2 text-[var(--admin-muted)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
+                            data-reservation-actions-toggle="true"
+                          >
+                            <MoreHorizontal className="h-4 w-4" aria-hidden />
+                          </button>
+                          {openMenuId === reservation.id && (
+                            <div className="absolute right-0 z-10 mt-2 w-44 rounded-xl border bg-[var(--admin-surface)] p-2 text-left shadow-lg admin-border">
+                              <Link
+                                href={`/dashboard/reservations/${reservation.id}/edit`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-[var(--admin-text-strong)] transition hover:bg-[var(--admin-surface-alt)] hover:text-peach-500"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" aria-hidden />
+                                Düzenle
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  await handleDelete(reservation.id);
+                                }}
+                                disabled={isDeleting}
+                                className={clsx(
+                                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-[var(--admin-surface-alt)]",
+                                  isDeleting
+                                    ? "text-[var(--admin-muted)]"
+                                    : "text-red-500"
+                                )}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                                {isDeleting ? "Siliniyor..." : "Sil"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -714,6 +855,52 @@ function ReservationTable({
       </div>
     </section>
   );
+}
+
+function buildReservationCsv(reservations: Reservation[]) {
+  const headers = [
+    "Kod",
+    "Müşteri",
+    "E-posta",
+    "Kediler",
+    "Giriş",
+    "Çıkış",
+    "Oda",
+    "Durum",
+    "Toplam",
+  ];
+
+  const rows = reservations.map((res) => {
+    const status =
+      statusVariantMap[res.status as keyof typeof statusVariantMap];
+    const cats = res.cats
+      .map((c) => c.cat.name)
+      .filter(Boolean)
+      .join(" | ");
+    return [
+      res.code,
+      res.customer?.user.name ?? "",
+      res.customer?.user.email ?? "",
+      cats || "Kedi yok",
+      formatDate(res.checkIn),
+      formatDate(res.checkOut),
+      res.room.name,
+      formatStatusFromVariant(status),
+      res.totalPrice?.toString() ?? "",
+    ]
+      .map(csvEscape)
+      .join(",");
+  });
+
+  return [headers.join(","), ...rows].join("\n");
+}
+
+function csvEscape(value: string) {
+  const safe = value ?? "";
+  if (safe.includes(",") || safe.includes('"') || safe.includes("\n")) {
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
+  return safe;
 }
 
 function StatusBadge({ status }: { status: string }) {

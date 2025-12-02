@@ -69,6 +69,15 @@ export const HotelApi = {
       },
       { csrf: true },
     ),
+  deleteReservation: (id: string) =>
+    clientRequest<Reservation>(
+      `/api/reservations/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status: ReservationStatus.CANCELLED }),
+      },
+      { csrf: true },
+    ),
   listStaffTasks: () => clientRequest<CareTask[]>('/api/staff/tasks'),
   updateTaskStatus: (id: string, payload: Record<string, unknown>) =>
     clientRequest<CareTask>(

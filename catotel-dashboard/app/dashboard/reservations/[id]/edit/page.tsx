@@ -1,7 +1,7 @@
 "use client";
 
 import { ReservationWizard } from "@/components/reservations/ReservationWizard";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { HotelApi } from "@/lib/api/hotel";
 import { useState } from "react";
@@ -9,6 +9,9 @@ import { useState } from "react";
 export default function ReservationEditPage() {
   const params = useParams<{ id: string }>();
   const reservationId = params?.id;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const stepParam = searchParams?.get("step");
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -24,13 +27,11 @@ export default function ReservationEditPage() {
   const updateMutation = useMutation({
     mutationFn: (payload: any) => HotelApi.updateReservation(reservationId!, payload),
     onSuccess: () => {
-      setSuccess("Rezervasyon güncellendi.");
-      setError(null);
       queryClient.invalidateQueries({ queryKey: ["reservation", reservationId] });
       queryClient.invalidateQueries({ queryKey: ["reservations"] });
+      router.push(`/dashboard/reservations/${reservationId}`);
     },
     onError: (err: any) => {
-      setSuccess(null);
       setError(err?.message ?? "Rezervasyon güncellenemedi.");
     },
   });
@@ -58,7 +59,6 @@ export default function ReservationEditPage() {
   return (
     <div className="space-y-6">
       {error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{error}</p>}
-      {success && <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{success}</p>}
       <ReservationWizard
         mode="edit"
         rooms={rooms}
@@ -67,6 +67,11 @@ export default function ReservationEditPage() {
         customerName={reservation?.customer?.user.name ?? reservation?.customer?.user.email ?? null}
         submitting={reservationLoading || updateMutation.isLoading}
         onSubmitAction={handleSubmit}
+        initialStep={
+          stepParam === "dates" || stepParam === "cats" || stepParam === "pricing"
+            ? stepParam
+            : "cats"
+        }
       />
     </div>
   );

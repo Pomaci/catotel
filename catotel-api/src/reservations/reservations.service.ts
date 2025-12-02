@@ -376,12 +376,20 @@ export class ReservationsService {
       ReservationStatus.CANCELLED,
     ];
 
+    // İptalden geri almayı mümkün kıl: iptalden beklemeye veya onaya dönüşe izin ver.
     if (current === ReservationStatus.CANCELLED) {
-      return next === ReservationStatus.CANCELLED;
+      return (
+        next === ReservationStatus.PENDING || next === ReservationStatus.CONFIRMED
+      );
     }
     if (next === ReservationStatus.CANCELLED) return true;
 
-    return order.indexOf(next) >= order.indexOf(current);
+    const currentIdx = order.indexOf(current);
+    const nextIdx = order.indexOf(next);
+    if (nextIdx === -1 || currentIdx === -1) return false;
+
+    // İleri veya en fazla bir adım geri gitmeye izin ver (check-out -> check-in, check-in -> onay vb.)
+    return nextIdx >= currentIdx - 1;
   }
 
   private async ensureCatsAvailable(

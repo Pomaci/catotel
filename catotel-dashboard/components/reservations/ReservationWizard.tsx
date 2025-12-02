@@ -42,6 +42,7 @@ export function ReservationWizard({
   submitting,
   allowNewCustomer = false,
   customerCreatedCallbackAction,
+  initialStep,
 }: {
   mode?: "create" | "edit";
   rooms?: Room[];
@@ -52,6 +53,7 @@ export function ReservationWizard({
   submitting?: boolean;
   allowNewCustomer?: boolean;
   customerCreatedCallbackAction?: (nameOrEmail: string) => void;
+  initialStep?: StepKey;
 }) {
   const isEdit = mode === "edit";
   const reservationCustomerId =
@@ -60,7 +62,8 @@ export function ReservationWizard({
     initialReservation?.customer?.user.id ??
     null;
 
-  const [step, setStep] = useState<StepKey>(isEdit ? "cats" : "customer");
+  const defaultStep: StepKey = initialStep ?? (isEdit ? "cats" : "customer");
+  const [step, setStep] = useState<StepKey>(defaultStep);
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(
     customerName ?? null
   );
@@ -134,9 +137,13 @@ export function ReservationWizard({
           null
       );
       setSelectedCustomerId(reservationCustomerId);
-      if (isEdit) setStep("cats");
+      if (isEdit && initialStep) {
+        setStep(initialStep);
+      } else if (isEdit) {
+        setStep("cats");
+      }
     }
-  }, [initialReservation, isEdit, reservationCustomerId]);
+  }, [initialReservation, isEdit, reservationCustomerId, initialStep]);
 
   async function handleCreateCustomer() {
     setCustomerError(null);

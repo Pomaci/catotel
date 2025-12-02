@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import clsx from "clsx";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -30,11 +31,25 @@ import { ReservationStatus } from "@/types/enums";
 export default function ReservationDetailPage() {
   const params = useParams<{ id: string }>();
   const reservationId = params?.id;
+  const queryClient = useQueryClient();
 
   const { data: reservation, isLoading, error } = useQuery({
     queryKey: ["reservation", reservationId],
     enabled: Boolean(reservationId),
     queryFn: () => HotelApi.getReservation(reservationId!),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (status: ReservationStatus) =>
+      HotelApi.updateReservation(reservationId!, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reservation", reservationId] });
+      queryClient.invalidateQueries({ queryKey: ["reservations"] });
+    },
+    onError: (err) => {
+      console.error(err);
+      alert("Durum güncellenirken bir hata oluştu.");
+    },
   });
 
   const trail = useMemo(() => buildTimeline(reservation?.status), [reservation?.status]);
@@ -62,7 +77,12 @@ export default function ReservationDetailPage() {
 
   return (
     <div className="space-y-6">
-      <HeaderCard reservation={reservation} nights={nights} />
+      <HeaderCard
+        reservation={reservation}
+        nights={nights}
+        onCancel={() => statusMutation.mutate(ReservationStatus.CANCELLED)}
+        isUpdating={statusMutation.isPending}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
@@ -73,7 +93,11 @@ export default function ReservationDetailPage() {
         </div>
         <div className="space-y-4">
           <TimelineCard trail={trail} />
-          <OperationsCard reservation={reservation} />
+          <OperationsCard
+            reservation={reservation}
+            onStatusChange={(status) => statusMutation.mutate(status)}
+            isUpdating={statusMutation.isPending}
+          />
           <PaymentCard reservation={reservation} totalExtras={totalExtras} />
         </div>
       </div>
@@ -83,7 +107,7 @@ export default function ReservationDetailPage() {
   );
 }
 
-function HeaderCard({ reservation, nights }: { reservation: Reservation; nights: number }) {
+function HeaderCard({ reservation, nights, onCancel, isUpdating }: { reservation: Reservation; nights: number; onCancel: () => void; isUpdating: boolean }) {
   const primaryCat = reservation.cats[0]?.cat;
   return (
     <div className="admin-surface flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
@@ -109,19 +133,21 @@ function HeaderCard({ reservation, nights }: { reservation: Reservation; nights:
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <Link
+          href={`/dashboard/reservations/${reservation.id}/edit`}
           className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-[var(--admin-text-strong)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
         >
           <Edit3 className="h-4 w-4" aria-hidden />
           Düzenle
-        </button>
+        </Link>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-red-500 transition hover:-translate-y-0.5 hover:border-red-300 admin-border"
+          onClick={onCancel}
+          disabled={isUpdating}
+          className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-red-500 transition hover:-translate-y-0.5 hover:border-red-300 admin-border disabled:cursor-not-allowed disabled:opacity-60"
         >
           <XCircle className="h-4 w-4" aria-hidden />
-          İptal Et
+          {isUpdating ? "İptal ediliyor..." : "İptal Et"}
         </button>
         <button
           type="button"
@@ -210,13 +236,13 @@ function StayCard({ reservation, nights }: { reservation: Reservation; nights: n
     <CardShell
       title="Konaklama"
       action={
-        <button
-          type="button"
+        <Link
+          href={`/dashboard/reservations/${reservation.id}/edit?step=dates`}
           className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold text-[var(--admin-text-strong)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
         >
           <DoorOpen className="h-4 w-4" aria-hidden />
           Oda değiştir
-        </button>
+        </Link>
       }
     >
       <div className="grid gap-3 md:grid-cols-2">
@@ -289,13 +315,13 @@ function NotesCard({ reservation }: { reservation: Reservation }) {
     <CardShell
       title="Notlar"
       action={
-        <button
-          type="button"
+        <Link
+          href={`/dashboard/reservations/${reservation.id}/edit?step=pricing`}
           className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold text-[var(--admin-text-strong)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
         >
           <NotebookPen className="h-4 w-4" aria-hidden />
           Notları düzenle
-        </button>
+        </Link>
       }
     >
       <div className="space-y-2 rounded-2xl bg-[var(--admin-surface-alt)] p-3">
@@ -348,25 +374,131 @@ function TimelineCard({ trail }: { trail: Array<{ label: string; at: string; sta
   );
 }
 
-function OperationsCard({ reservation }: { reservation: Reservation }) {
+function OperationsCard({
+  reservation,
+  onStatusChange,
+  isUpdating,
+}: {
+  reservation: Reservation;
+  onStatusChange: (status: ReservationStatus) => void;
+  isUpdating: boolean;
+}) {
+  const isCancelled = reservation.status === ReservationStatus.CANCELLED;
+  const isConfirmed = reservation.status === ReservationStatus.CONFIRMED;
+  const isCheckedIn = reservation.status === ReservationStatus.CHECKED_IN;
+  const isCheckedOut = reservation.status === ReservationStatus.CHECKED_OUT;
+  const canConfirm = reservation.status === ReservationStatus.PENDING;
+  const canCheckIn =
+    reservation.status === ReservationStatus.CONFIRMED ||
+    reservation.status === ReservationStatus.CHECKED_IN;
+  const canCheckOut =
+    reservation.status === ReservationStatus.CHECKED_IN ||
+    reservation.status === ReservationStatus.CHECKED_OUT;
+  const canCancel =
+    reservation.status !== ReservationStatus.CANCELLED &&
+    reservation.status !== ReservationStatus.CHECKED_OUT;
+
   return (
     <CardShell title="Operasyon">
       <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg"
-        >
-          <CheckCircle2 className="h-4 w-4" aria-hidden />
-          Check-in Yap
-        </button>
-        <button
-          type="button"
-          className="flex items-center justify-center gap-2 rounded-2xl bg-peach-400 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg"
-        >
-          <DoorOpen className="h-4 w-4" aria-hidden />
-          Check-out Yap
-        </button>
+        {!isCancelled && (
+          <>
+            <button
+              type="button"
+              onClick={() =>
+                onStatusChange(isConfirmed ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED)
+              }
+              disabled={!(canConfirm || isConfirmed) || isUpdating}
+              className={clsx(
+                "flex items-center justify-center gap-2 rounded-2xl bg-peach-500 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg",
+                (!(canConfirm || isConfirmed) || isUpdating) &&
+                  "opacity-60 hover:translate-y-0 hover:shadow-none"
+              )}
+            >
+              <Check className="h-4 w-4" aria-hidden />
+              {isUpdating
+                ? isConfirmed
+                  ? "Onay geri alınıyor..."
+                  : "Onaylanıyor..."
+                : isConfirmed
+                  ? "Onayı Geri Al"
+                  : "Rezervasyonu Onayla"}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onStatusChange(
+                  isCheckedIn
+                    ? ReservationStatus.CONFIRMED
+                    : ReservationStatus.CHECKED_IN
+                )
+              }
+              disabled={!canCheckIn || isUpdating}
+              className={clsx(
+                "flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg",
+                (!canCheckIn || isUpdating) && "opacity-60 hover:translate-y-0 hover:shadow-none"
+              )}
+            >
+              <CheckCircle2 className="h-4 w-4" aria-hidden />
+              {isUpdating
+                ? "İşlem yapılıyor..."
+                : isCheckedIn
+                  ? "Check-in Geri Al (Onaya dön)"
+                  : "Check-in Yap"}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onStatusChange(
+                  isCheckedOut ? ReservationStatus.CHECKED_IN : ReservationStatus.CHECKED_OUT
+                )
+              }
+              disabled={!canCheckOut || isUpdating}
+              className={clsx(
+                "flex items-center justify-center gap-2 rounded-2xl bg-peach-400 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg",
+                (!canCheckOut || isUpdating) && "opacity-60 hover:translate-y-0 hover:shadow-none"
+              )}
+            >
+              <DoorOpen className="h-4 w-4" aria-hidden />
+              {isUpdating
+                ? "İşlem yapılıyor..."
+                : isCheckedOut
+                  ? "Check-out Geri Al"
+                  : "Check-out Yap"}
+            </button>
+          </>
+        )}
+        {isCancelled && (
+          <button
+            type="button"
+            onClick={() => onStatusChange(ReservationStatus.CONFIRMED)}
+            disabled={isUpdating}
+            className={clsx(
+              "flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-highlight-muted)] px-4 py-3 text-sm font-semibold text-[var(--admin-text-strong)] shadow transition hover:-translate-y-0.5 hover:shadow-lg",
+              isUpdating && "opacity-60 hover:translate-y-0 hover:shadow-none"
+            )}
+          >
+            <CheckCircle2 className="h-4 w-4" aria-hidden />
+            {isUpdating ? "Geri alınıyor..." : "İptali Geri Al (Onayla)"}
+          </button>
+        )}
       </div>
+      {!isCancelled && (
+        <div className="mt-3 rounded-2xl bg-[var(--admin-surface-alt)] px-4 py-3 text-sm">
+          <button
+            type="button"
+            onClick={() => onStatusChange(ReservationStatus.CANCELLED)}
+            disabled={!canCancel || isUpdating}
+            className={clsx(
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:-translate-y-0.5 hover:border-red-200 hover:text-red-600 admin-border",
+              (!canCancel || isUpdating) && "opacity-60 hover:translate-y-0"
+            )}
+          >
+            <XCircle className="h-4 w-4" aria-hidden />
+            {isUpdating ? "İşlem yapılıyor..." : "İptal Et"}
+          </button>
+        </div>
+      )}
       <div className="rounded-2xl bg-[var(--admin-surface-alt)] px-4 py-3 text-sm">
         <p className="flex items-center gap-2 text-[var(--admin-muted)]">
           <Clock3 className="h-4 w-4" aria-hidden />
@@ -451,15 +583,47 @@ function buildTimeline(status?: ReservationStatus) {
     { key: ReservationStatus.CHECKED_OUT, label: "Check-out" },
     { key: ReservationStatus.CANCELLED, label: "İptal" },
   ];
+  if (!status) {
+    return steps.map((step, idx) => ({
+      label: step.label,
+      at: idx === 0 ? "Oluşturma tarihi" : "Plan",
+      state: idx === 0 ? "active" : "pending",
+    }));
+  }
+
+  if (status === ReservationStatus.CANCELLED) {
+    return steps.map((step, idx) => {
+      let state: "done" | "active" | "pending" | "disabled" = "pending";
+      if (step.key === ReservationStatus.PENDING) {
+        state = "done";
+      } else if (step.key === ReservationStatus.CANCELLED) {
+        state = "active";
+      } else {
+        state = "disabled";
+      }
+      return { label: step.label, at: idx === 0 ? "Oluşturma tarihi" : "Plan", state };
+    });
+  }
+
+  const order = [
+    ReservationStatus.PENDING,
+    ReservationStatus.CONFIRMED,
+    ReservationStatus.CHECKED_IN,
+    ReservationStatus.CHECKED_OUT,
+    ReservationStatus.CANCELLED,
+  ];
+  const currentIdx = order.indexOf(status);
+
   return steps.map((step, idx) => {
     let state: "done" | "active" | "pending" | "disabled" = "pending";
-    if (status === step.key) {
-      state = "active";
-    } else if (isLaterStatus(status, step.key)) {
+    if (idx < currentIdx) {
       state = "done";
-    } else if (status === ReservationStatus.CANCELLED && step.key !== ReservationStatus.CANCELLED) {
-      state = "disabled";
+    } else if (idx === currentIdx) {
+      state = "done";
+    } else if (idx === currentIdx + 1) {
+      state = "active";
     }
+
     return { label: step.label, at: idx === 0 ? "Oluşturma tarihi" : "Plan", state };
   });
 }
