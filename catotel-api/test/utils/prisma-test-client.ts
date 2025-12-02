@@ -28,13 +28,23 @@ export async function seedTestData() {
   const admin = await prismaTestClient.user.upsert({
     where: { email: 'admin@test.com' },
     update: { password, role: UserRole.ADMIN, name: 'Admin' },
-    create: { email: 'admin@test.com', password, role: UserRole.ADMIN, name: 'Admin' },
+    create: {
+      email: 'admin@test.com',
+      password,
+      role: UserRole.ADMIN,
+      name: 'Admin',
+    },
   });
 
   const customerUser = await prismaTestClient.user.upsert({
     where: { email: 'customer@test.com' },
     update: { password, role: UserRole.CUSTOMER, name: 'Customer' },
-    create: { email: 'customer@test.com', password, role: UserRole.CUSTOMER, name: 'Customer' },
+    create: {
+      email: 'customer@test.com',
+      password,
+      role: UserRole.CUSTOMER,
+      name: 'Customer',
+    },
   });
 
   const customerProfile = await prismaTestClient.customerProfile.upsert({

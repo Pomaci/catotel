@@ -45,9 +45,10 @@ describe('RoomsService', () => {
   });
 
   it('updates a room with decimal nightlyRate when provided', async () => {
-    mockPrisma.room.findUnique = jest
-      .fn()
-      .mockResolvedValue({ id: 'room-1', nightlyRate: new Prisma.Decimal(100) });
+    mockPrisma.room.findUnique = jest.fn().mockResolvedValue({
+      id: 'room-1',
+      nightlyRate: new Prisma.Decimal(100),
+    });
     mockPrisma.room.update = jest.fn().mockResolvedValue({ id: 'room-1' });
 
     await service.update('room-1', { nightlyRate: 250.5 });
@@ -61,16 +62,17 @@ describe('RoomsService', () => {
   });
 
   it('updates a room without overwriting nightlyRate when omitted', async () => {
-    mockPrisma.room.findUnique = jest
-      .fn()
-      .mockResolvedValue({ id: 'room-1', nightlyRate: new Prisma.Decimal(100) });
+    mockPrisma.room.findUnique = jest.fn().mockResolvedValue({
+      id: 'room-1',
+      nightlyRate: new Prisma.Decimal(100),
+    });
     mockPrisma.room.update = jest.fn().mockResolvedValue({ id: 'room-1' });
 
     await service.update('room-1', { name: 'Updated' });
 
-    expect(
-      mockPrisma.room.update.mock.calls[0][0].data,
-    ).not.toHaveProperty('nightlyRate');
+    expect(mockPrisma.room.update.mock.calls[0][0].data).not.toHaveProperty(
+      'nightlyRate',
+    );
   });
 
   it('throws NotFound when updating non-existent room', async () => {

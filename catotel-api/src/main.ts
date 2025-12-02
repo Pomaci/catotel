@@ -11,10 +11,9 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
-  const app =
-    await NestFactory.create<NestExpressApplication>(AppModule, {
-      bufferLogs: true,
-    });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   app.enableShutdownHooks();
   app.set('trust proxy', 1);
 

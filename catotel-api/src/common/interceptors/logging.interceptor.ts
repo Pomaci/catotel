@@ -22,7 +22,9 @@ export class LoggingInterceptor implements NestInterceptor {
     const userId = (request as any)?.user?.sub as string | undefined;
     const ip =
       request.ip ||
-      (Array.isArray(request.ips) && request.ips.length ? request.ips[0] : undefined);
+      (Array.isArray(request.ips) && request.ips.length
+        ? request.ips[0]
+        : undefined);
 
     return next.handle().pipe(
       tap(() => {

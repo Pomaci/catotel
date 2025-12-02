@@ -43,4 +43,19 @@ export class CustomersController {
   ) {
     return this.customers.updateCat(req.user!.sub, id, dto);
   }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  @Get(':id/cats')
+  async listCatsForCustomer(@Param('id') id: string) {
+    return this.customers.listCatsByCustomerId(id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  @Post(':id/cats')
+  async createCatForCustomer(
+    @Param('id') id: string,
+    @Body() dto: CreateCatDto,
+  ) {
+    return this.customers.createCatForCustomer(id, dto);
+  }
 }

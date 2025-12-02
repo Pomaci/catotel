@@ -13,7 +13,7 @@ const createConfig = (overrides: Record<string, any> = {}) =>
   ({
     get: (key: string) => overrides[key],
     getOrThrow: (key: string) => overrides[key],
-  } as unknown as ConfigService<any>);
+  }) as unknown as ConfigService<any>;
 
 describe('MailService', () => {
   it('disables when MAIL_ENABLED is false', async () => {

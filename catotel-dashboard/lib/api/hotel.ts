@@ -35,10 +35,16 @@ export const HotelApi = {
       },
       { csrf: true },
     ),
-  listRooms: (includeInactive = false) =>
-    clientRequest<Room[]>(
-      `/api/rooms${includeInactive ? '?includeInactive=true' : ''}`,
-    ),
+  listRooms: (includeInactive = false, checkIn?: string, checkOut?: string) => {
+    const params = new URLSearchParams();
+    if (includeInactive) params.set('includeInactive', 'true');
+    if (checkIn && checkOut) {
+      params.set('checkIn', checkIn);
+      params.set('checkOut', checkOut);
+    }
+    const qs = params.toString();
+    return clientRequest<Room[]>(`/api/rooms${qs ? `?${qs}` : ''}`);
+  },
   listReservations: (status?: ReservationStatusValue) =>
     clientRequest<Reservation[]>(
       `/api/reservations${status ? `?status=${status}` : ''}`,
@@ -50,6 +56,15 @@ export const HotelApi = {
       '/api/reservations',
       {
         method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { csrf: true },
+    ),
+  updateReservation: (id: string, payload: Record<string, unknown>) =>
+    clientRequest<Reservation>(
+      `/api/reservations/${id}`,
+      {
+        method: 'PATCH',
         body: JSON.stringify(payload),
       },
       { csrf: true },

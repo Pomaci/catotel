@@ -1,23 +1,20 @@
 import { z } from 'zod';
 
-const booleanFromEnv = z.preprocess(
-  (value) => {
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
+const booleanFromEnv = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
 
-      if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
-        return true;
-      }
-
-      if (['false', '0', 'no', 'n', 'off', ''].includes(normalized)) {
-        return false;
-      }
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
     }
 
-    return value;
-  },
-  z.boolean(),
-);
+    if (['false', '0', 'no', 'n', 'off', ''].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return value;
+}, z.boolean());
 
 export const envSchema = z
   .object({

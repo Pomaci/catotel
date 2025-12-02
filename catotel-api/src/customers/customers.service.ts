@@ -62,6 +62,25 @@ export class CustomersService {
     });
   }
 
+  async listCatsByCustomerId(customerId: string) {
+    await this.ensureCustomerById(customerId);
+    return this.prisma.cat.findMany({
+      where: { customerId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createCatForCustomer(customerId: string, dto: CreateCatDto) {
+    await this.ensureCustomerById(customerId);
+    return this.prisma.cat.create({
+      data: {
+        ...dto,
+        customerId,
+        birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+      },
+    });
+  }
+
   async updateCat(userId: string, catId: string, dto: UpdateCatDto) {
     const cat = await this.prisma.cat.findUnique({ where: { id: catId } });
     if (!cat) {
@@ -83,6 +102,16 @@ export class CustomersService {
   private async ensureCustomer(userId: string) {
     const customer = await this.prisma.customerProfile.findUnique({
       where: { userId },
+    });
+    if (!customer) {
+      throw new NotFoundException('Customer profile not found');
+    }
+    return customer;
+  }
+
+  private async ensureCustomerById(id: string) {
+    const customer = await this.prisma.customerProfile.findUnique({
+      where: { id },
     });
     if (!customer) {
       throw new NotFoundException('Customer profile not found');

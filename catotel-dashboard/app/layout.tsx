@@ -23,12 +23,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body
         className={`${dmSans.variable} min-h-screen bg-sand-50 text-cocoa-700 antialiased`}
       >
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,214,201,0.6),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(127,218,208,0.25),transparent_55%)]" />
         <AuthProvider>
           <QueryProvider>
-            <main className="relative z-10 min-h-screen">
-              <div className="flex min-h-screen flex-col px-4 pb-16 pt-10 lg:px-8">{children}</div>
-            </main>
+            {children}
           </QueryProvider>
         </AuthProvider>
       </body>

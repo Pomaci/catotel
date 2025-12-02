@@ -21,10 +21,12 @@ export type Room = {
   id: string;
   name: string;
   description?: string | null;
+  type?: string | null;
   capacity: number;
   nightlyRate: number | string;
   amenities?: Record<string, any> | null;
   isActive: boolean;
+  available?: boolean;
 };
 
 export type ReservationCat = {
@@ -46,9 +48,18 @@ export type Reservation = {
   checkOut: string;
   totalPrice: number | string;
   specialRequests?: string | null;
+  customer?: {
+    user: { id: string; name?: string | null; email: string };
+  } | null;
   room: Room;
   cats: ReservationCat[];
   services: ReservationService[];
+  payments?: Array<{
+    id: string;
+    amount: number | string;
+    status: string;
+    createdAt?: string;
+  }>;
 };
 
 export type CustomerProfile = {

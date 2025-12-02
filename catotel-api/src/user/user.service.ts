@@ -5,21 +5,37 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { RegisterUserDto } from './dto/register-user.dto';
+import { addMinutes } from 'date-fns';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { Prisma, UserRole } from '@prisma/client';
-import { CreateManagedUserDto } from './dto/create-managed-user.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
+import { EnvVars } from 'src/config/config.schema';
+import { RegisterUserDto } from './dto/register-user.dto';
+import { CreateManagedUserDto } from './dto/create-managed-user.dto';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { CustomerSearchDto } from './dto/customer-search.dto';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+  private readonly resetUrl: string;
+  private readonly resetTtlMinutes: number;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
-  ) {}
-
-  private readonly logger = new Logger(UserService.name);
+    private readonly config: ConfigService<EnvVars>,
+  ) {
+    this.resetUrl =
+      this.config.get('PASSWORD_RESET_URL', { infer: true }) ??
+      'http://localhost:3100/auth/reset-password';
+    this.resetTtlMinutes =
+      this.config.get('PASSWORD_RESET_TOKEN_TTL_MINUTES', { infer: true }) ??
+      30;
+  }
 
   async register({ email, password, name }: RegisterUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
@@ -43,11 +59,11 @@ export class UserService {
       },
     });
 
-    void this.mail
-      .sendWelcomeEmail(user.email, user.name ?? undefined)
-      .catch((err) =>
-        this.logger.error('Failed to send welcome email after register', err),
-      );
+    try {
+      await this.mail.sendWelcomeEmail(user.email, user.name ?? undefined);
+    } catch (err) {
+      this.logger.warn(`Welcome email failed to send: ${String(err)}`);
+    }
 
     return this.sanitizeUser(user);
   }
@@ -80,11 +96,6 @@ export class UserService {
     name,
     role,
   }: CreateManagedUserDto) {
-    if (role === UserRole.CUSTOMER) {
-      throw new BadRequestException(
-        'Customer role cannot be assigned via managed endpoint',
-      );
-    }
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw new ConflictException('Email already registered');
@@ -104,16 +115,64 @@ export class UserService {
       },
       include: { customer: true, staff: true },
     });
-    void this.mail
-      .sendWelcomeEmail(user.email, user.name ?? undefined)
-      .catch((err) =>
-        this.logger.error(
-          'Failed to send welcome email after user creation',
-          err,
-        ),
-      );
+
+    try {
+      await this.mail.sendWelcomeEmail(user.email, user.name ?? undefined);
+    } catch (err) {
+      this.logger.warn(`Welcome email failed to send: ${String(err)}`);
+    }
 
     return this.sanitizeUser(user);
+  }
+
+  async createCustomerAsStaff({
+    email,
+    password,
+    name,
+    phone,
+  }: CreateCustomerDto) {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+    const generated =
+      password ||
+      randomBytes(6)
+        .toString('base64')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .slice(0, 10);
+    const hashed = await bcrypt.hash(generated, 10);
+    const normalizedPhone = this.normalizePhone(phone);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        password: hashed,
+        name,
+        role: UserRole.CUSTOMER,
+        customer: { create: { phone: normalizedPhone } },
+      },
+      include: { customer: true, staff: true },
+    });
+
+    // Invitation mail: let customer set their own password
+    try {
+      await this.sendPasswordSetupEmail(
+        user.id,
+        user.email,
+        user.name ?? undefined,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Customer invite email could not be sent: ${String(err)}`,
+      );
+    }
+
+    return {
+      ...this.sanitizeUser(user),
+      tempPassword: generated,
+      customerId: user.customer?.id,
+    };
   }
 
   async updateUserRole(id: string, role: UserRole) {
@@ -167,5 +226,78 @@ export class UserService {
       hasCustomerProfile: Boolean(customer),
       hasStaffProfile: Boolean(staff),
     };
+  }
+
+  async searchCustomers(query: string): Promise<CustomerSearchDto[]> {
+    if (!query.trim()) return [];
+    const q = query.trim();
+    const qDigits = q.replace(/\D/g, '');
+    const or: Prisma.UserWhereInput[] = [
+      { email: { contains: q, mode: 'insensitive' } },
+      { name: { contains: q, mode: 'insensitive' } },
+      { customer: { phone: { contains: q } } },
+    ];
+    if (qDigits) {
+      or.push({ customer: { phone: { contains: qDigits } } });
+    }
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.CUSTOMER,
+        OR: or,
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: { customer: true },
+    });
+    return users.map((u) => ({
+      id: u.customer?.id ?? '',
+      email: u.email,
+      name: u.name,
+      phone: u.customer?.phone ?? null,
+    }));
+  }
+
+  private normalizePhone(phone?: string | null): string | undefined {
+    if (!phone) return undefined;
+    // Strip non-digit characters
+    let digits = phone.replace(/\D/g, '');
+    // Drop leading 00 (intl prefix) or 0 (local)
+    if (digits.startsWith('00')) {
+      digits = digits.slice(2);
+    } else if (digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
+    // If Turkish 10-digit local number, prepend country code
+    if (digits.length === 10 && !digits.startsWith('90')) {
+      digits = `90${digits}`;
+    }
+    if (digits.length < 10) {
+      throw new BadRequestException('Invalid phone number');
+    }
+    return `+${digits}`;
+  }
+
+  private digestToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async sendPasswordSetupEmail(
+    userId: string,
+    email: string,
+    name?: string,
+  ) {
+    const token = randomUUID();
+    const tokenHash = this.digestToken(token);
+    const expiresAt = addMinutes(new Date(), this.resetTtlMinutes);
+
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+      this.prisma.passwordResetToken.create({
+        data: { userId, tokenHash, expiresAt },
+      }),
+    ]);
+
+    const link = `${this.resetUrl}${this.resetUrl.includes('?') ? '&' : '?'}token=${token}`;
+    await this.mail.sendPasswordResetEmail(email, link, name);
   }
 }

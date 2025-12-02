@@ -53,8 +53,8 @@ describe('ReservationsService', () => {
     const tx = {
       reservation: txReservation,
     };
-    (mockPrisma.$transaction as jest.Mock).mockImplementation(
-      async (cb: any) => cb(tx),
+    (mockPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb(tx),
     );
     return txReservation;
   }
@@ -63,9 +63,9 @@ describe('ReservationsService', () => {
     mockPrisma.customerProfile.findUnique = jest
       .fn()
       .mockResolvedValue({ ...baseCustomer, cats: [] });
-    mockPrisma.cat.findMany = jest.fn().mockResolvedValue([
-      { id: 'cat-1', customerId: baseCustomer.id },
-    ]);
+    mockPrisma.cat.findMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'cat-1', customerId: baseCustomer.id }]);
     mockPrisma.room.findUnique = jest.fn().mockResolvedValue(baseRoom);
     mockPrisma.reservation.findFirst = jest.fn().mockResolvedValue(null);
     mockPrisma.addonService.findMany = jest.fn().mockResolvedValue([
@@ -94,9 +94,9 @@ describe('ReservationsService', () => {
     mockPrisma.customerProfile.findUnique = jest
       .fn()
       .mockResolvedValue({ ...baseCustomer, cats: [] });
-    mockPrisma.cat.findMany = jest.fn().mockResolvedValue([
-      { id: 'cat-1', customerId: baseCustomer.id },
-    ]);
+    mockPrisma.cat.findMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'cat-1', customerId: baseCustomer.id }]);
     mockPrisma.room.findUnique = jest.fn().mockResolvedValue(baseRoom);
     mockPrisma.reservation.findFirst = jest.fn().mockResolvedValue(null);
     mockPrisma.addonService.findMany = jest.fn().mockResolvedValue([]);
@@ -162,9 +162,9 @@ describe('ReservationsService', () => {
     mockPrisma.customerProfile.findUnique = jest
       .fn()
       .mockResolvedValue({ ...baseCustomer, cats: [] });
-    mockPrisma.cat.findMany = jest.fn().mockResolvedValue([
-      { id: 'cat-1', customerId: 'another' },
-    ]);
+    mockPrisma.cat.findMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'cat-1', customerId: 'another' }]);
     await expect(
       service.create('user-1', {
         roomId: 'room-1',

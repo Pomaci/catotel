@@ -2,6 +2,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsDateString,
+  IsEnum,
   IsOptional,
   IsString,
   ValidateNested,
@@ -10,28 +11,24 @@ import {
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ReservationStatus } from '@prisma/client';
+import { ReservationAddonDto } from './create-reservation.dto';
 
-export class ReservationAddonDto {
-  @IsString()
-  @Matches(/^c[a-z0-9]{24}$/i, { message: 'serviceId must be a valid cuid' })
-  serviceId!: string;
-
-  @IsInt()
-  @Min(1)
-  quantity: number = 1;
-}
-
-export class CreateReservationDto {
+export class UpdateReservationDto {
+  @IsOptional()
   @IsString()
   @Matches(/^c[a-z0-9]{24}$/i, { message: 'roomId must be a valid cuid' })
-  roomId!: string;
+  roomId?: string;
 
+  @IsOptional()
   @IsDateString()
-  checkIn!: string;
+  checkIn?: string;
 
+  @IsOptional()
   @IsDateString()
-  checkOut!: string;
+  checkOut?: string;
 
+  @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @IsString({ each: true })
@@ -39,7 +36,7 @@ export class CreateReservationDto {
     each: true,
     message: 'each value in catIds must be a valid cuid',
   })
-  catIds!: string[];
+  catIds?: string[];
 
   @IsOptional()
   @IsString()
@@ -52,7 +49,6 @@ export class CreateReservationDto {
   addons?: ReservationAddonDto[];
 
   @IsOptional()
-  @IsString()
-  @Matches(/^c[a-z0-9]{24}$/i, { message: 'customerId must be a valid cuid' })
-  customerId?: string;
+  @IsEnum(ReservationStatus)
+  status?: ReservationStatus;
 }

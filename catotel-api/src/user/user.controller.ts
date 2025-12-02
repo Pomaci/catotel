@@ -24,6 +24,8 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { CreateManagedUserDto } from './dto/create-managed-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { CustomerSearchDto } from './dto/customer-search.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -90,6 +92,24 @@ export class UserController {
   @Post('management')
   async createManagedUser(@Body() body: CreateManagedUserDto) {
     return this.userService.createManagedUser(body);
+  }
+
+  @ApiOperation({ summary: 'Create a customer account (staff/admin)' })
+  @ApiBearerAuth('access-token')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  @Post('customers')
+  async createCustomer(@Body() body: CreateCustomerDto) {
+    return this.userService.createCustomerAsStaff(body);
+  }
+
+  @ApiOperation({ summary: 'Search customers by email/phone/name' })
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ type: [CustomerSearchDto] })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  @Get('customers/search')
+  async searchCustomers(@Req() req: Request) {
+    const query = (req.query.q as string) ?? '';
+    return this.userService.searchCustomers(query);
   }
 
   @ApiOperation({ summary: 'Update user role' })

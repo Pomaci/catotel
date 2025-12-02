@@ -7,7 +7,8 @@ import {
 import { Prisma, ReservationStatus, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
-import { differenceInCalendarDays } from 'date-fns';
+import { UpdateReservationDto } from './dto/update-reservation.dto';
+import { differenceInCalendarDays, startOfDay } from 'date-fns';
 import { randomBytes } from 'crypto';
 import { publicUserSelect } from 'src/user/public-user.select';
 
@@ -54,19 +55,20 @@ export class ReservationsService {
     return reservation;
   }
 
-  async create(userId: string, dto: CreateReservationDto) {
-    const customer = await this.prisma.customerProfile.findUnique({
-      where: { userId },
-      include: { cats: true },
-    });
-    if (!customer) {
-      throw new BadRequestException('Customer profile not found');
-    }
+  async create(userId: string, role: UserRole, dto: CreateReservationDto) {
+    const targetCustomer = await this.resolveCustomer(
+      userId,
+      role,
+      dto.customerId,
+    );
 
     const checkIn = new Date(dto.checkIn);
     const checkOut = new Date(dto.checkOut);
     if (checkIn >= checkOut) {
       throw new BadRequestException('Check-out must be after check-in');
+    }
+    if (checkIn < startOfDay(new Date())) {
+      throw new BadRequestException('Check-in cannot be in the past');
     }
 
     const cats = await this.prisma.cat.findMany({
@@ -76,10 +78,13 @@ export class ReservationsService {
       throw new BadRequestException('Some cats were not found');
     }
     for (const cat of cats) {
-      if (cat.customerId !== customer.id) {
-        throw new ForbiddenException(`Cat ${cat.name} does not belong to you`);
+      if (cat.customerId !== targetCustomer.id) {
+        throw new ForbiddenException(
+          `Cat ${cat.name} does not belong to selected customer`,
+        );
       }
     }
+    await this.ensureCatsAvailable(dto.catIds, checkIn, checkOut);
 
     const room = await this.prisma.room.findUnique({
       where: { id: dto.roomId },
@@ -164,11 +169,11 @@ export class ReservationsService {
         return tx.reservation.create({
           data: {
             code,
-            customerId: customer.id,
+            customerId: targetCustomer.id,
             roomId: room.id,
             checkIn,
             checkOut,
-        totalPrice,
+            totalPrice,
             specialRequests: dto.specialRequests,
             cats: {
               createMany: {
@@ -192,5 +197,225 @@ export class ReservationsService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+  }
+
+  private async resolveCustomer(
+    userId: string,
+    role: UserRole,
+    customerId?: string,
+  ) {
+    if (role === UserRole.CUSTOMER) {
+      const customer = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+      });
+      if (!customer) {
+        throw new BadRequestException('Customer profile not found');
+      }
+      return customer;
+    }
+
+    if (!customerId) {
+      throw new BadRequestException('customerId is required for staff/admin');
+    }
+
+    const customer = await this.prisma.customerProfile.findUnique({
+      where: { id: customerId },
+    });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+    return customer;
+  }
+
+  async update(id: string, role: UserRole, dto: UpdateReservationDto) {
+    const existing = await this.prisma.reservation.findUnique({
+      where: { id },
+      include: { cats: true, room: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Reservation not found');
+    }
+    if (
+      role !== UserRole.ADMIN &&
+      role !== UserRole.MANAGER &&
+      role !== UserRole.STAFF
+    ) {
+      throw new ForbiddenException('Only staff can update reservations');
+    }
+
+    const checkIn = dto.checkIn ? new Date(dto.checkIn) : existing.checkIn;
+    const checkOut = dto.checkOut ? new Date(dto.checkOut) : existing.checkOut;
+    if (checkIn >= checkOut) {
+      throw new BadRequestException('Check-out must be after check-in');
+    }
+    if (checkIn < startOfDay(new Date())) {
+      throw new BadRequestException('Check-in cannot be in the past');
+    }
+
+    const roomId = dto.roomId ?? existing.roomId;
+    const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+    if (!room || !room.isActive) {
+      throw new BadRequestException('Room not available');
+    }
+
+    const catIds = dto.catIds ?? existing.cats.map((c) => c.catId);
+    if (!catIds.length) {
+      throw new BadRequestException('At least one cat is required');
+    }
+
+    const cats = await this.prisma.cat.findMany({
+      where: { id: { in: catIds } },
+    });
+    if (cats.length !== catIds.length) {
+      throw new BadRequestException('Some cats were not found');
+    }
+    if (room.capacity < cats.length) {
+      throw new BadRequestException('Room capacity exceeded');
+    }
+    await this.ensureCatsAvailable(catIds, checkIn, checkOut, id);
+
+    const overlapping = await this.prisma.reservation.findFirst({
+      where: {
+        id: { not: id },
+        roomId: room.id,
+        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
+        OR: [
+          {
+            checkIn: { lt: checkOut },
+            checkOut: { gt: checkIn },
+          },
+        ],
+      },
+    });
+    if (overlapping) {
+      throw new BadRequestException('Room already booked for selected dates');
+    }
+
+    const addons =
+      dto.addons && dto.addons.length
+        ? await this.prisma.addonService.findMany({
+            where: { id: { in: dto.addons.map((a) => a.serviceId) } },
+          })
+        : [];
+
+    const reservationServices: {
+      serviceId: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+    }[] = [];
+    if (addons.length) {
+      for (const addon of addons) {
+        const requested = dto.addons!.find((a) => a.serviceId === addon.id)!;
+        reservationServices.push({
+          serviceId: addon.id,
+          quantity: requested.quantity,
+          unitPrice: addon.price,
+        });
+      }
+    }
+
+    let nights = differenceInCalendarDays(checkOut, checkIn);
+    if (nights <= 0) nights = 1;
+    let totalPrice = new Prisma.Decimal(room.nightlyRate).mul(nights);
+    if (reservationServices.length) {
+      for (const service of reservationServices) {
+        totalPrice = totalPrice.add(service.unitPrice.mul(service.quantity));
+      }
+    }
+
+    const status =
+      dto.status && this.isValidTransition(existing.status, dto.status)
+        ? dto.status
+        : existing.status;
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        const updated = await tx.reservation.update({
+          where: { id },
+          data: {
+            roomId: room.id,
+            checkIn,
+            checkOut,
+            totalPrice,
+            specialRequests: dto.specialRequests ?? existing.specialRequests,
+            status,
+            cats: {
+              deleteMany: {},
+              createMany: { data: catIds.map((catId) => ({ catId })) },
+            },
+            services: reservationServices.length
+              ? {
+                  deleteMany: {},
+                  createMany: { data: reservationServices },
+                }
+              : undefined,
+          },
+          include: {
+            room: true,
+            customer: { include: { user: { select: publicUserSelect } } },
+            cats: { include: { cat: true } },
+            services: { include: { service: true } },
+            payments: true,
+          },
+        });
+        return updated;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  }
+
+  private isValidTransition(
+    current: ReservationStatus,
+    next: ReservationStatus,
+  ) {
+    const order: ReservationStatus[] = [
+      ReservationStatus.PENDING,
+      ReservationStatus.CONFIRMED,
+      ReservationStatus.CHECKED_IN,
+      ReservationStatus.CHECKED_OUT,
+      ReservationStatus.CANCELLED,
+    ];
+
+    if (current === ReservationStatus.CANCELLED) {
+      return next === ReservationStatus.CANCELLED;
+    }
+    if (next === ReservationStatus.CANCELLED) return true;
+
+    return order.indexOf(next) >= order.indexOf(current);
+  }
+
+  private async ensureCatsAvailable(
+    catIds: string[],
+    checkIn: Date,
+    checkOut: Date,
+    excludeReservationId?: string,
+  ) {
+    if (!catIds.length) return;
+    const overlapping = await this.prisma.reservation.findMany({
+      where: {
+        id: excludeReservationId ? { not: excludeReservationId } : undefined,
+        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
+        cats: { some: { catId: { in: catIds } } },
+        checkIn: { lt: checkOut },
+        checkOut: { gt: checkIn },
+      },
+      select: {
+        id: true,
+        code: true,
+        cats: {
+          where: { catId: { in: catIds } },
+          select: { cat: { select: { name: true } } },
+        },
+      },
+    });
+    if (overlapping.length) {
+      const names = overlapping
+        .flatMap((r) => r.cats.map((c) => c.cat.name))
+        .filter(Boolean)
+        .join(', ');
+      throw new BadRequestException(
+        `Seçilen kediler için çakışan rezervasyon var: ${names || 'kedi'}`,
+      );
+    }
   }
 }

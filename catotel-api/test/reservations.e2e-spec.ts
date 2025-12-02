@@ -1,5 +1,9 @@
 import { Test } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
@@ -14,8 +18,10 @@ describe('Reservations (e2e, real Prisma)', () => {
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
-    process.env.ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET ?? 'test-access-secret';
-    process.env.REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET ?? 'test-refresh-secret';
+    process.env.ACCESS_TOKEN_SECRET =
+      process.env.ACCESS_TOKEN_SECRET ?? 'test-access-secret';
+    process.env.REFRESH_TOKEN_SECRET =
+      process.env.REFRESH_TOKEN_SECRET ?? 'test-refresh-secret';
     process.env.ACCESS_TOKEN_TTL = '15m';
     process.env.REFRESH_TOKEN_TTL = '7d';
     process.env.JWT_ISSUER = 'catotel-api';
