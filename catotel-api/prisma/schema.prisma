@@ -175,6 +175,10 @@ model Reservation {
   status          ReservationStatus   @default(PENDING)
   checkIn         DateTime
   checkOut        DateTime
+  checkedInAt     DateTime?
+  checkedOutAt    DateTime?
+  checkInForm     Json?
+  checkOutForm    Json?
   totalPrice      Decimal             @db.Decimal(10, 2)
   specialRequests String?
   cats            ReservationCat[]

@@ -40,13 +40,63 @@ export type ReservationService = {
   unitPrice: number | string;
 };
 
+export type CheckItem = {
+  label: string;
+  quantity?: number | string | null;
+  note?: string | null;
+};
+
+export type FeedingPlan = {
+  brand?: string | null;
+  amountPerMeal?: string | null;
+  frequencyPerDay?: number | null;
+  instructions?: string | null;
+};
+
+export type MedicationPlan = {
+  name: string;
+  dosage?: string | null;
+  schedule?: string | null;
+  withFood?: boolean | null;
+  notes?: string | null;
+};
+
+export type CheckInForm = {
+  arrivalTime?: string | null;
+  deliveredItems?: CheckItem[];
+  foodPlan?: FeedingPlan | null;
+  medicationPlan?: MedicationPlan[];
+  weightKg?: number | string | null;
+  catCondition?: string | null;
+  hasVaccineCard?: boolean | null;
+  hasFleaTreatment?: boolean | null;
+  handledBy?: string | null;
+  additionalNotes?: string | null;
+};
+
+export type CheckOutForm = {
+  departureTime?: string | null;
+  returnedItems?: CheckItem[];
+  catCondition?: string | null;
+  incidents?: string | null;
+  roomConditionNote?: string | null;
+  remainingFood?: string | null;
+  nextVisitNote?: string | null;
+  handledBy?: string | null;
+  additionalNotes?: string | null;
+};
+
 export type Reservation = {
   id: string;
   code: string;
   status: ReservationStatus;
   checkIn: string;
   checkOut: string;
+  checkedInAt?: string | null;
+  checkedOutAt?: string | null;
   totalPrice: number | string;
+  checkInForm?: CheckInForm | null;
+  checkOutForm?: CheckOutForm | null;
   specialRequests?: string | null;
   customer?: {
     user: { id: string; name?: string | null; email: string };

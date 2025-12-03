@@ -93,6 +93,7 @@ export function ReservationWizard({
   });
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [customerError, setCustomerError] = useState<string | null>(null);
+  const [customerSuccess, setCustomerSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<CustomerSearch[]>([]);
   const [searching, setSearching] = useState(false);
@@ -147,6 +148,7 @@ export function ReservationWizard({
 
   async function handleCreateCustomer() {
     setCustomerError(null);
+    setCustomerSuccess(null);
     if (!newCustomer.email.trim()) {
       setCustomerError("E-posta zorunlu");
       return;
@@ -162,8 +164,10 @@ export function ReservationWizard({
       setSelectedCustomer(created.name ?? created.email);
       setSelectedCustomerId(created.id ?? null);
       setCustomerError(null);
+      setCustomerSuccess("Yeni musteri olusturuldu");
     } catch (err: any) {
-      setCustomerError(err?.message ?? "Müşteri oluşturulamadı");
+      setCustomerError(err?.message ?? "M��teri olu�turulamad�");
+      setCustomerSuccess(null);
     } finally {
       setCreatingCustomer(false);
     }
@@ -171,7 +175,6 @@ export function ReservationWizard({
       customerCreatedCallbackAction(created.name ?? created.email);
     }
   }
-
   async function handleSearch(term: string) {
     setSearchTerm(term);
     setCustomerError(null);
@@ -412,6 +415,11 @@ export function ReservationWizard({
                     {customerError}
                   </p>
                 )}
+                {customerSuccess && (
+                  <p className="text-xs font-semibold text-emerald-600">
+                    {customerSuccess}
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={handleCreateCustomer}
@@ -430,7 +438,7 @@ export function ReservationWizard({
         <StepCard title="Kedi seçimi">
           {!hasCustomerSelected ? (
             <p className="text-sm text-[var(--admin-muted)]">
-              İlerlemek için önce müşteri seç.
+              �lerlemek i�in �nce m��teri se�.
             </p>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
@@ -788,3 +796,4 @@ function Stepper({ current }: { current: StepKey }) {
     </div>
   );
 }
+

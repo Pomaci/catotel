@@ -7,12 +7,158 @@ import {
   IsString,
   ValidateNested,
   IsInt,
+  IsBoolean,
+  IsNumber,
   Min,
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ReservationStatus } from '@prisma/client';
 import { ReservationAddonDto } from './create-reservation.dto';
+
+class CheckItemDto {
+  @IsString()
+  label!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+class FeedingPlanDto {
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  amountPerMeal?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  frequencyPerDay?: number;
+
+  @IsOptional()
+  @IsString()
+  instructions?: string;
+}
+
+class MedicationPlanDto {
+  @IsString()
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  dosage?: string;
+
+  @IsOptional()
+  @IsString()
+  schedule?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  withFood?: boolean;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+class CheckInFormDto {
+  @IsOptional()
+  @IsDateString()
+  arrivalTime?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CheckItemDto)
+  deliveredItems?: CheckItemDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FeedingPlanDto)
+  foodPlan?: FeedingPlanDto;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MedicationPlanDto)
+  medicationPlan?: MedicationPlanDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'weightKg must be a number' })
+  weightKg?: number;
+
+  @IsOptional()
+  @IsString()
+  catCondition?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hasVaccineCard?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasFleaTreatment?: boolean;
+
+  @IsOptional()
+  @IsString()
+  handledBy?: string;
+
+  @IsOptional()
+  @IsString()
+  additionalNotes?: string;
+}
+
+class CheckOutFormDto {
+  @IsOptional()
+  @IsDateString()
+  departureTime?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CheckItemDto)
+  returnedItems?: CheckItemDto[];
+
+  @IsOptional()
+  @IsString()
+  catCondition?: string;
+
+  @IsOptional()
+  @IsString()
+  incidents?: string;
+
+  @IsOptional()
+  @IsString()
+  roomConditionNote?: string;
+
+  @IsOptional()
+  @IsString()
+  remainingFood?: string;
+
+  @IsOptional()
+  @IsString()
+  nextVisitNote?: string;
+
+  @IsOptional()
+  @IsString()
+  handledBy?: string;
+
+  @IsOptional()
+  @IsString()
+  additionalNotes?: string;
+}
 
 export class UpdateReservationDto {
   @IsOptional()
@@ -51,4 +197,14 @@ export class UpdateReservationDto {
   @IsOptional()
   @IsEnum(ReservationStatus)
   status?: ReservationStatus;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CheckInFormDto)
+  checkInForm?: CheckInFormDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CheckOutFormDto)
+  checkOutForm?: CheckOutFormDto;
 }

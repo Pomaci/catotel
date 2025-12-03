@@ -273,6 +273,42 @@ textarea {
   border-color: rgba(255, 182, 115, 0.65);
 }
 
+.customer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.customer-status[data-status='active'] {
+  background: rgba(16, 185, 129, 0.15);
+  color: #0f9b69;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.customer-status[data-status='inactive'] {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.admin-shell[data-theme='dark'] .customer-status[data-status='active'] {
+  background: rgba(16, 185, 129, 0.25);
+  color: #c8f5e7;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.admin-shell[data-theme='dark'] .customer-status[data-status='inactive'] {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
 .timeline {
   position: relative;
   display: flex;

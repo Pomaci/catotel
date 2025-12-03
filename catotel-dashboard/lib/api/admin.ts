@@ -53,4 +53,27 @@ export const AdminApi = {
       },
       { csrf: true },
     ),
+  listCustomers: (params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: 'ACTIVE' | 'INACTIVE';
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+  }) =>
+    clientRequest(
+      '/api/admin/customers',
+      {
+        method: 'GET',
+        query: params,
+      },
+    ),
+  deleteCustomer: (id: string) =>
+    clientRequest(
+      `/api/admin/customers/${id}`,
+      {
+        method: 'DELETE',
+      },
+      { csrf: true },
+    ),
 };

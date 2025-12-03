@@ -327,6 +327,33 @@ export class ReservationsService {
       dto.status && this.isValidTransition(existing.status, dto.status)
         ? dto.status
         : existing.status;
+    const checkInFormValue =
+      dto.checkInForm !== undefined ? dto.checkInForm : existing.checkInForm;
+    const checkOutFormValue =
+      dto.checkOutForm !== undefined ? dto.checkOutForm : existing.checkOutForm;
+
+    const checkInForm =
+      checkInFormValue === null || checkInFormValue === undefined
+        ? Prisma.JsonNull
+        : (checkInFormValue as Prisma.InputJsonValue);
+    const checkOutForm =
+      checkOutFormValue === null || checkOutFormValue === undefined
+        ? Prisma.JsonNull
+        : (checkOutFormValue as Prisma.InputJsonValue);
+
+    let checkedInAt = existing.checkedInAt;
+    if (dto.checkInForm?.arrivalTime) {
+      checkedInAt = new Date(dto.checkInForm.arrivalTime);
+    } else if (status === ReservationStatus.CHECKED_IN && !checkedInAt) {
+      checkedInAt = new Date();
+    }
+
+    let checkedOutAt = existing.checkedOutAt;
+    if (dto.checkOutForm?.departureTime) {
+      checkedOutAt = new Date(dto.checkOutForm.departureTime);
+    } else if (status === ReservationStatus.CHECKED_OUT && !checkedOutAt) {
+      checkedOutAt = new Date();
+    }
 
     return this.prisma.$transaction(
       async (tx) => {
@@ -339,6 +366,10 @@ export class ReservationsService {
             totalPrice,
             specialRequests: dto.specialRequests ?? existing.specialRequests,
             status,
+            checkInForm,
+            checkOutForm,
+            checkedInAt,
+            checkedOutAt,
             cats: {
               deleteMany: {},
               createMany: { data: catIds.map((catId) => ({ catId })) },
