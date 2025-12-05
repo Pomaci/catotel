@@ -22,7 +22,7 @@ export class StaffService {
         cat: true,
         reservation: {
           include: {
-            room: true,
+            roomType: true,
             customer: { include: { user: { select: publicUserSelect } } },
           },
         },

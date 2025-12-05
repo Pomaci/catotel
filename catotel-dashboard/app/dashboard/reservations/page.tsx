@@ -29,7 +29,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { HotelApi } from "@/lib/api/hotel";
-import type { Reservation, Room } from "@/types/hotel";
+import type { Reservation, RoomType } from "@/types/hotel";
 
 type StatusKey = keyof typeof statusVariantMap;
 const statusVariantMap = {
@@ -53,8 +53,8 @@ export default function ReservationsPage() {
     queryKey: ["reservations"],
     queryFn: () => HotelApi.listReservations(),
   });
-  const { data: rooms } = useQuery({
-    queryKey: ["rooms"],
+  const { data: roomTypes } = useQuery({
+    queryKey: ["room-types"],
     queryFn: () => HotelApi.listRooms(),
   });
 
@@ -95,7 +95,7 @@ export default function ReservationsPage() {
           : statusFilter.includes(res.status as keyof typeof statusVariantMap);
 
       const matchesRoom =
-        roomFilter.length === 0 ? true : roomFilter.includes(res.room.name);
+        roomFilter.length === 0 ? true : roomFilter.includes(res.roomType.name);
 
       const matchesDate = isWithinDateFilter(res, dateFilter);
 
@@ -166,7 +166,7 @@ export default function ReservationsPage() {
           onRoomChange={setRoomFilter}
           dateFilter={dateFilter}
           onDateChange={setDateFilter}
-          rooms={rooms}
+          rooms={roomTypes}
           onReset={() => {
             setSearchTerm("");
             setStatusFilter([]);
@@ -254,7 +254,7 @@ function FilterBar({
   onRoomChange: (v: string[]) => void;
   dateFilter: DateFilter;
   onDateChange: (v: DateFilter) => void;
-  rooms?: Room[];
+  rooms?: RoomType[];
   onReset: () => void;
 }) {
   const activeFilters = [
@@ -382,11 +382,7 @@ function FilterBar({
                       onStatusChange([...statusFilter, option]);
                     }
                   }}
-                  className={clsx(
-                    "status-badge cursor-pointer text-xs font-semibold",
-                    active ? "ring-2 ring-peach-300" : ""
-                  )}
-                  data-variant={statusVariantMap[option]}
+                  className={clsx("filter-chip", active && "filter-chip--active")}
                 >
                   {formatStatus(option)}
                 </span>
@@ -761,11 +757,11 @@ function ReservationTable({
                           className="h-4 w-4 text-peach-400"
                           aria-hidden
                         />
-                        {reservation.room.name}
+                        {reservation.roomType.name}
                       </div>
                       <p className="text-xs admin-muted">
-                        {reservation.room.description ??
-                          reservation.room.type ??
+                        {reservation.roomType.description ??
+                          reservation.roomType.name ??
                           "Oda"}
                       </p>
                     </td>

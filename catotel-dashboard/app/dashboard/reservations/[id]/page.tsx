@@ -78,7 +78,7 @@ export default function ReservationDetailPage() {
     );
   }
 
-  const totalExtras = reservation.services?.reduce((sum, s) => sum + Number(s.unitPrice) * s.quantity, 0) ?? 0;
+  const totalExtras = reservation.services?.reduce((sum, s) => sum + Number(s.unitPrice) * s.quantity, 0) ? 0;
   const nights = calculateNights(reservation.checkIn, reservation.checkOut);
 
   const handleStatusChange = (status: ReservationStatus) => updateMutation.mutate({ status });
@@ -91,7 +91,7 @@ export default function ReservationDetailPage() {
       });
       setShowCheckInForm(false);
     } catch (err) {
-      // Hata mesajÄ± mutation iÃ§inde gÃ¶steriliyor.
+      // Hata mesaj? mutation i?inde g?steriliyor.
       console.error(err);
     }
   };
@@ -168,7 +168,7 @@ function HeaderCard({ reservation, nights, onCancel, isUpdating }: { reservation
         <div>
           <h1 className="text-2xl font-semibold text-[var(--admin-text-strong)]">Rezervasyon #{reservation.code}</h1>
           <p className="mt-1 text-sm text-[var(--admin-muted)]">
-            Müşteri: {reservation.customer?.user.name ?? "Bilinmiyor"} • Kedi: {primaryCat?.name ?? "?"}{" "}
+            Müşteri: {reservation.customer?.user.name ? "Bilinmiyor"} • Kedi: {primaryCat?.name ? "?"}{" "}
             {primaryCat?.breed ? `(${primaryCat.breed})` : ""}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
@@ -254,9 +254,9 @@ function InfoCard({ reservation }: { reservation: Reservation }) {
             <User className="h-4 w-4" aria-hidden />
           </div>
           <div>
-            <p className="text-base font-semibold">{reservation.customer?.user.name ?? "Bilinmiyor"}</p>
+            <p className="text-base font-semibold">{reservation.customer?.user.name ? "Bilinmiyor"}</p>
             <p className="text-xs text-[var(--admin-muted)]">
-              {reservation.customer?.user.email ?? "E-posta yok"} • {reservation.customer?.user.name ? "" : ""}
+              {reservation.customer?.user.email ? "E-posta yok"} • {reservation.customer?.user.name ? "" : ""}
             </p>
           </div>
         </div>
@@ -272,7 +272,7 @@ function InfoCard({ reservation }: { reservation: Reservation }) {
             </div>
             <div>
               <p className="font-semibold">{catEntry.cat.name}</p>
-              <p className="text-xs text-[var(--admin-muted)]">{catEntry.cat.breed ?? "Cins bilinmiyor"}</p>
+              <p className="text-xs text-[var(--admin-muted)]">{catEntry.cat.breed ? "Cins bilinmiyor"}</p>
             </div>
           </div>
         ))}
@@ -300,9 +300,9 @@ function StayCard({ reservation, nights }: { reservation: Reservation; nights: n
           <Home className="h-4 w-4 text-peach-400" aria-hidden />
           <div>
             <p className="text-sm font-semibold">
-              {reservation.room.name} ({reservation.room.type})
+              {reservation.roomType.name} (kapasite: {reservation.roomType.capacity} kedi)
             </p>
-            <p className="text-xs text-[var(--admin-muted)]">{reservation.room.description ?? "Oda detayı"}</p>
+            <p className="text-xs text-[var(--admin-muted)]">{reservation.roomType.description ? "Oda detayi"}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-2xl bg-[var(--admin-surface-alt)] px-3 py-3">
@@ -377,7 +377,7 @@ function NotesCard({ reservation }: { reservation: Reservation }) {
       <div className="space-y-2 rounded-2xl bg-[var(--admin-surface-alt)] p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--admin-muted)]">Müşteri notu</p>
         <p className="text-sm leading-relaxed text-[var(--admin-text-strong)]">
-          {reservation.specialRequests ?? "Not yok"}
+          {reservation.specialRequests ? "Not yok"}
         </p>
       </div>
       <div className="space-y-2 rounded-2xl bg-[var(--admin-surface-alt)] p-3">
@@ -561,7 +561,7 @@ function OperationsCard({
           <p className="text-xs font-semibold uppercase tracking-[0.3em] admin-muted">Check-in Kaydi</p>
           <p className="text-sm font-semibold text-[var(--admin-text-strong)]">
             {reservation.checkInForm?.arrivalTime
-              ? `${formatDateTime(reservation.checkInForm.arrivalTime)} - ${reservation.checkInForm?.deliveredItems?.length ?? 0} esya`
+              ? `${formatDateTime(reservation.checkInForm.arrivalTime)} - ${reservation.checkInForm?.deliveredItems?.length ? 0} esya`
               : "Henuz kaydedilmedi"}
           </p>
           {reservation.checkInForm?.catCondition && (
@@ -572,7 +572,7 @@ function OperationsCard({
           <p className="text-xs font-semibold uppercase tracking-[0.3em] admin-muted">Check-out Kaydi</p>
           <p className="text-sm font-semibold text-[var(--admin-text-strong)]">
             {reservation.checkOutForm?.departureTime
-              ? `${formatDateTime(reservation.checkOutForm.departureTime)} - ${reservation.checkOutForm?.returnedItems?.length ?? 0} esya`
+              ? `${formatDateTime(reservation.checkOutForm.departureTime)} - ${reservation.checkOutForm?.returnedItems?.length ? 0} esya`
               : "Henuz kaydedilmedi"}
           </p>
           {reservation.checkOutForm?.catCondition && (
@@ -705,8 +705,8 @@ function CheckInFormModal({
     if (!open) return;
     setArrivalTime(
       toDatetimeLocal(
-        reservation.checkInForm?.arrivalTime ??
-          reservation.checkedInAt ??
+        reservation.checkInForm?.arrivalTime ?
+          reservation.checkedInAt ?
           reservation.checkIn
       )
     );
@@ -714,37 +714,37 @@ function CheckInFormModal({
       reservation.checkInForm?.deliveredItems?.map((item) => ({
         label: item.label,
         quantity: item.quantity ? String(item.quantity) : "",
-        note: item.note ?? "",
-      })) ?? []
+        note: item.note ? "",
+      })) ? []
     );
     setFoodPlan({
-      brand: reservation.checkInForm?.foodPlan?.brand ?? "",
-      amountPerMeal: reservation.checkInForm?.foodPlan?.amountPerMeal ?? "",
+      brand: reservation.checkInForm?.foodPlan?.brand ? "",
+      amountPerMeal: reservation.checkInForm?.foodPlan?.amountPerMeal ? "",
       frequencyPerDay: reservation.checkInForm?.foodPlan?.frequencyPerDay
         ? String(reservation.checkInForm?.foodPlan?.frequencyPerDay)
         : "",
       instructions:
-        reservation.checkInForm?.foodPlan?.instructions ??
-        reservation.specialRequests ??
+        reservation.checkInForm?.foodPlan?.instructions ?
+        reservation.specialRequests ?
         "",
     });
     setMedications(
       reservation.checkInForm?.medicationPlan?.map((med) => ({
         name: med.name,
-        dosage: med.dosage ?? "",
-        schedule: med.schedule ?? "",
+        dosage: med.dosage ? "",
+        schedule: med.schedule ? "",
         withFood: Boolean(med.withFood),
-        notes: med.notes ?? "",
-      })) ?? []
+        notes: med.notes ? "",
+      })) ? []
     );
     setWeightKg(
       reservation.checkInForm?.weightKg ? String(reservation.checkInForm.weightKg) : ""
     );
-    setCatCondition(reservation.checkInForm?.catCondition ?? "");
+    setCatCondition(reservation.checkInForm?.catCondition ? "");
     setHasVaccineCard(Boolean(reservation.checkInForm?.hasVaccineCard));
     setHasFleaTreatment(Boolean(reservation.checkInForm?.hasFleaTreatment));
-    setHandledBy(reservation.checkInForm?.handledBy ?? "");
-    setAdditionalNotes(reservation.checkInForm?.additionalNotes ?? "");
+    setHandledBy(reservation.checkInForm?.handledBy ? "");
+    setAdditionalNotes(reservation.checkInForm?.additionalNotes ? "");
     setError(null);
   }, [open, reservation]);
 
@@ -758,7 +758,7 @@ function CheckInFormModal({
           quantity: item.quantity ? Number(item.quantity) : undefined,
           note: trimOrUndefined(item.note),
         }))
-        .filter((item) => item.label.length > 0) ?? [];
+        .filter((item) => item.label.length > 0) ? [];
 
     if (!arrivalTime) {
       setError("Check-in saati girmelisin.");
@@ -812,7 +812,7 @@ function CheckInFormModal({
   return (
     <ModalShell
       title="Check-in formu"
-      description="GeliÅŸte teslim alÄ±nan eÅŸyalarÄ±, saati ve klinik/gÃ¼venlik kontrollerini kaydet."
+      description="Geli?te teslim al?nan e?yalar?, saati ve klinik/g?venlik kontrollerini kaydet."
       onClose={onClose}
       footer={
         <>
@@ -822,7 +822,7 @@ function CheckInFormModal({
             className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-[var(--admin-text-strong)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
             disabled={saving}
           >
-            VazgeÃ§
+            Vazge?
           </button>
           <button
             type="button"
@@ -848,7 +848,7 @@ function CheckInFormModal({
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[var(--admin-text-strong)]">Teslim anÄ± gÃ¶zlemleri</label>
+          <label className="text-sm font-semibold text-[var(--admin-text-strong)]">Teslim an? g?zlemleri</label>
           <textarea
             value={catCondition}
             onChange={(e) => setCatCondition(e.target.value)}
@@ -882,14 +882,14 @@ function CheckInFormModal({
         items={deliveredItems}
         onChange={setDeliveredItems}
         addLabel="EÅŸya ekle"
-        placeholder="TaÅŸÄ±ma kutusu, mama, ilaÃ§..."
+        placeholder="Ta??ma kutusu, mama, ila?..."
       />
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-3 admin-border">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Beslenme planÄ±</p>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.3em] admin-muted">GÃ¼nlÃ¼k rutin</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.3em] admin-muted">G?nl?k rutin</span>
           </div>
           <input
             type="text"
@@ -903,7 +903,7 @@ function CheckInFormModal({
               type="text"
               value={foodPlan.amountPerMeal}
               onChange={(e) => setFoodPlan((prev) => ({ ...prev, amountPerMeal: e.target.value }))}
-              placeholder="Ã–ÄŸÃ¼n baÅŸÄ± miktar"
+              placeholder="???n ba?? miktar"
               className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
             />
             <input
@@ -911,7 +911,7 @@ function CheckInFormModal({
               min="1"
               value={foodPlan.frequencyPerDay}
               onChange={(e) => setFoodPlan((prev) => ({ ...prev, frequencyPerDay: e.target.value }))}
-              placeholder="GÃ¼nde kaÃ§ Ã¶ÄŸÃ¼n"
+              placeholder="G?nde ka? ???n"
               className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
             />
           </div>
@@ -928,7 +928,7 @@ function CheckInFormModal({
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-2 rounded-2xl border bg-[var(--admin-surface-alt)] p-3 admin-border">
-          <p className="text-sm font-semibold">SaÄŸlÄ±k / gÃ¼venlik</p>
+          <p className="text-sm font-semibold">Sa?l?k / g?venlik</p>
           <label className="flex items-center gap-2 text-sm font-semibold text-[var(--admin-text-strong)]">
             <input
               type="checkbox"
@@ -936,7 +936,7 @@ function CheckInFormModal({
               onChange={(e) => setHasVaccineCard(e.target.checked)}
               className="h-4 w-4 rounded border-[var(--admin-border)] text-peach-500 focus:ring-peach-300"
             />
-            AÅŸÄ± karnesi / gÃ¼ncellemeler teslim alÄ±ndÄ±
+            A?? karnesi / g?ncellemeler teslim al?nd?
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold text-[var(--admin-text-strong)]">
             <input
@@ -945,7 +945,7 @@ function CheckInFormModal({
               onChange={(e) => setHasFleaTreatment(e.target.checked)}
               className="h-4 w-4 rounded border-[var(--admin-border)] text-peach-500 focus:ring-peach-300"
             />
-            Pire/akÄ±tÄ±lma kontrolÃ¼ yapÄ±ldÄ±
+            Pire/ak?t?lma kontrol? yap?ld?
           </label>
         </div>
         <div className="space-y-2">
@@ -993,8 +993,8 @@ function CheckOutFormModal({
     if (!open) return;
     setDepartureTime(
       toDatetimeLocal(
-        reservation.checkOutForm?.departureTime ??
-          reservation.checkedOutAt ??
+        reservation.checkOutForm?.departureTime ?
+          reservation.checkedOutAt ?
           reservation.checkOut
       )
     );
@@ -1002,16 +1002,16 @@ function CheckOutFormModal({
       reservation.checkOutForm?.returnedItems?.map((item) => ({
         label: item.label,
         quantity: item.quantity ? String(item.quantity) : "",
-        note: item.note ?? "",
-      })) ?? []
+        note: item.note ? "",
+      })) ? []
     );
-    setCatCondition(reservation.checkOutForm?.catCondition ?? "");
-    setIncidents(reservation.checkOutForm?.incidents ?? "");
-    setRoomConditionNote(reservation.checkOutForm?.roomConditionNote ?? "");
-    setRemainingFood(reservation.checkOutForm?.remainingFood ?? "");
-    setNextVisitNote(reservation.checkOutForm?.nextVisitNote ?? "");
-    setHandledBy(reservation.checkOutForm?.handledBy ?? "");
-    setAdditionalNotes(reservation.checkOutForm?.additionalNotes ?? "");
+    setCatCondition(reservation.checkOutForm?.catCondition ? "");
+    setIncidents(reservation.checkOutForm?.incidents ? "");
+    setRoomConditionNote(reservation.checkOutForm?.roomConditionNote ? "");
+    setRemainingFood(reservation.checkOutForm?.remainingFood ? "");
+    setNextVisitNote(reservation.checkOutForm?.nextVisitNote ? "");
+    setHandledBy(reservation.checkOutForm?.handledBy ? "");
+    setAdditionalNotes(reservation.checkOutForm?.additionalNotes ? "");
     setError(null);
   }, [open, reservation]);
 
@@ -1025,7 +1025,7 @@ function CheckOutFormModal({
           quantity: item.quantity ? Number(item.quantity) : undefined,
           note: trimOrUndefined(item.note),
         }))
-        .filter((item) => item.label.length > 0) ?? [];
+        .filter((item) => item.label.length > 0) ? [];
 
     if (!departureTime) {
       setError("Check-out saati girmelisin.");
@@ -1036,7 +1036,7 @@ function CheckOutFormModal({
       return;
     }
     if (!catCondition.trim()) {
-      setError("Ã‡Ä±kÄ±ÅŸ durumunu yazmalÄ±sÄ±n.");
+      setError("??k?? durumunu yazmal?s?n.");
       return;
     }
 
@@ -1059,7 +1059,7 @@ function CheckOutFormModal({
   return (
     <ModalShell
       title="Check-out formu"
-      description="Ã‡Ä±kÄ±ÅŸ saati, teslim edilen eÅŸyalar ve Ã§Ä±kÄ±ÅŸtaki durum gÃ¶zlemlerini kaydet."
+      description="??k?? saati, teslim edilen e?yalar ve ??k??taki durum g?zlemlerini kaydet."
       onClose={onClose}
       footer={
         <>
@@ -1069,7 +1069,7 @@ function CheckOutFormModal({
             className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-[var(--admin-text-strong)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
             disabled={saving}
           >
-            VazgeÃ§
+            Vazge?
           </button>
           <button
             type="button"
@@ -1093,12 +1093,12 @@ function CheckOutFormModal({
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[var(--admin-text-strong)]">Ã‡Ä±kÄ±ÅŸ gÃ¶zlemi</label>
+          <label className="text-sm font-semibold text-[var(--admin-text-strong)]">??k?? g?zlemi</label>
           <textarea
             value={catCondition}
             onChange={(e) => setCatCondition(e.target.value)}
             rows={3}
-            placeholder="Teslim anÄ±nda davranÄ±ÅŸ, tÃ¼y durumu, yara kontrolÃ¼..."
+            placeholder="Teslim an?nda davran??, t?y durumu, yara kontrol?..."
             className="w-full rounded-xl border bg-[var(--admin-surface-alt)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
           />
         </div>
@@ -1109,7 +1109,7 @@ function CheckOutFormModal({
         items={returnedItems}
         onChange={setReturnedItems}
         addLabel="EÅŸya ekle"
-        placeholder="TaÅŸÄ±ma kutusu, mama, ilaÃ§..."
+        placeholder="Ta??ma kutusu, mama, ila?..."
       />
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -1136,7 +1136,7 @@ function CheckOutFormModal({
             type="text"
             value={remainingFood}
             onChange={(e) => setRemainingFood(e.target.value)}
-            placeholder="Kalan mama / ilaÃ§ bilgisi"
+            placeholder="Kalan mama / ila? bilgisi"
             className="rounded-2xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
           />
           <input
@@ -1157,7 +1157,7 @@ function CheckOutFormModal({
             value={additionalNotes}
             onChange={(e) => setAdditionalNotes(e.target.value)}
             rows={3}
-            placeholder="MÃ¼ÅŸteri ile paylaÅŸÄ±lacak mesaj / iÃ§ not"
+            placeholder="M??teri ile payla??lacak mesaj / i? not"
             className="w-full rounded-2xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
           />
         </div>
@@ -1226,8 +1226,8 @@ function EditableItemList({
       ...items,
       {
         label: draft.label.trim(),
-        quantity: draft.quantity?.trim() ?? "",
-        note: draft.note?.trim() ?? "",
+        quantity: draft.quantity?.trim() ? "",
+        note: draft.note?.trim() ? "",
       },
     ]);
     setDraft({ label: "", quantity: "", note: "" });
@@ -1255,7 +1255,7 @@ function EditableItemList({
           type="text"
           value={draft.label}
           onChange={(e) => setDraft((prev) => ({ ...prev, label: e.target.value }))}
-          placeholder={placeholder ?? "EÅŸya"}
+          placeholder={placeholder ? "EÅŸya"}
           className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
         <input
@@ -1285,7 +1285,7 @@ function EditableItemList({
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        {items.length === 0 && <span className="text-xs font-semibold text-[var(--admin-muted)]">HenÃ¼z ekleme yok.</span>}
+        {items.length === 0 && <span className="text-xs font-semibold text-[var(--admin-muted)]">Hen?z ekleme yok.</span>}
         {items.map((item, idx) => (
           <span
             key={`${item.label}-${idx}`}
@@ -1346,7 +1346,7 @@ function MedicationListEditor({
   return (
     <div className="space-y-2 rounded-2xl border bg-[var(--admin-surface-alt)] p-3 admin-border">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">Ä°laÃ§ / takviye planÄ±</p>
+        <p className="text-sm font-semibold">?la? / takviye plan?</p>
         <button
           type="button"
           onClick={handleAdd}
@@ -1361,7 +1361,7 @@ function MedicationListEditor({
           type="text"
           value={draft.name}
           onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-          placeholder="Ä°laÃ§ / takviye adÄ±"
+          placeholder="?la? / takviye ad?"
           className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
         <input
@@ -1402,13 +1402,13 @@ function MedicationListEditor({
           type="button"
           onClick={handleAdd}
           className="inline-flex items-center justify-center rounded-xl border bg-[var(--admin-surface)] p-2 text-[var(--admin-muted)] transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border"
-          aria-label="Ä°laÃ§ ekle"
+          aria-label="?la? ekle"
         >
           <Plus className="h-4 w-4" aria-hidden />
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
-        {medications.length === 0 && <span className="text-xs font-semibold text-[var(--admin-muted)]">HenÃ¼z ekleme yok.</span>}
+        {medications.length === 0 && <span className="text-xs font-semibold text-[var(--admin-muted)]">Hen?z ekleme yok.</span>}
         {medications.map((med, idx) => (
           <span
             key={`${med.name}-${idx}`}
@@ -1551,7 +1551,7 @@ function toDatetimeLocal(value?: string | null) {
 }
 
 function trimOrUndefined(value?: string | null) {
-  const trimmed = (value ?? "").trim();
+  const trimmed = (value ? "").trim();
   return trimmed.length ? trimmed : undefined;
 }
 
@@ -1560,3 +1560,4 @@ function normalizeNumber(value?: string | null) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
+

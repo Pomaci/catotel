@@ -21,7 +21,7 @@ export default function ReservationEditPage() {
     enabled: Boolean(reservationId),
     queryFn: () => HotelApi.getReservation(reservationId!),
   });
-  const { data: rooms } = useQuery({ queryKey: ["rooms"], queryFn: () => HotelApi.listRooms() });
+  const { data: roomTypes } = useQuery({ queryKey: ["room-types"], queryFn: () => HotelApi.listRooms() });
   const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: () => HotelApi.listCats() });
 
   const updateMutation = useMutation({
@@ -37,7 +37,7 @@ export default function ReservationEditPage() {
   });
 
   async function handleSubmit(values: {
-    roomId: string | null;
+    roomTypeId: string | null;
     catIds: string[];
     checkIn: string;
     checkOut: string;
@@ -48,7 +48,7 @@ export default function ReservationEditPage() {
     setError(null);
     setSuccess(null);
     await updateMutation.mutateAsync({
-      roomId: values.roomId ?? reservation?.room.id,
+      roomTypeId: values.roomTypeId ?? reservation?.roomType.id,
       catIds: values.catIds,
       checkIn: values.checkIn,
       checkOut: values.checkOut,
@@ -61,7 +61,7 @@ export default function ReservationEditPage() {
       {error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{error}</p>}
       <ReservationWizard
         mode="edit"
-        rooms={rooms}
+        roomTypes={roomTypes}
         cats={cats}
         initialReservation={reservation}
         customerName={reservation?.customer?.user.name ?? reservation?.customer?.user.email ?? null}

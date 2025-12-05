@@ -10,6 +10,7 @@ export type Cat = {
   name: string;
   breed?: string | null;
   gender?: string | null;
+  isNeutered?: boolean | null;
   birthDate?: string | null;
   weightKg?: number | string | null;
   dietaryNotes?: string | null;
@@ -17,16 +18,28 @@ export type Cat = {
   photoUrl?: string | null;
 };
 
+export type RoomType = {
+  id: string;
+  name: string;
+  description?: string | null;
+  capacity: number;
+  nightlyRate: number | string;
+  overbookingLimit?: number;
+  capacityOk?: boolean;
+  amenities?: Record<string, any> | null;
+  isActive: boolean;
+  availableUnits?: number;
+  totalUnits?: number;
+  available?: boolean;
+};
+
 export type Room = {
   id: string;
   name: string;
   description?: string | null;
-  type?: string | null;
-  capacity: number;
-  nightlyRate: number | string;
-  amenities?: Record<string, any> | null;
+  roomType: RoomType;
+  roomTypeId?: string;
   isActive: boolean;
-  available?: boolean;
 };
 
 export type ReservationCat = {
@@ -95,13 +108,15 @@ export type Reservation = {
   checkedInAt?: string | null;
   checkedOutAt?: string | null;
   totalPrice: number | string;
+  allowRoomSharing?: boolean;
+  reservedSlots?: number;
   checkInForm?: CheckInForm | null;
   checkOutForm?: CheckOutForm | null;
   specialRequests?: string | null;
   customer?: {
     user: { id: string; name?: string | null; email: string };
   } | null;
-  room: Room;
+  roomType: RoomType;
   cats: ReservationCat[];
   services: ReservationService[];
   payments?: Array<{

@@ -6,23 +6,18 @@ import { requireCsrfToken } from '@/lib/server/csrf';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const includeInactive = searchParams.get('includeInactive') === 'true';
-  const checkIn = searchParams.get('checkIn') ?? undefined;
-  const checkOut = searchParams.get('checkOut') ?? undefined;
+  const page = searchParams.get('page') ?? undefined;
+  const pageSize = searchParams.get('pageSize') ?? undefined;
 
   try {
     const rooms = await backendRequestWithRefresh({
       method: 'GET',
       url: '/rooms',
-      query:
-        checkIn && checkOut
-          ? {
-              includeInactive: includeInactive ? 'true' : undefined,
-              checkIn,
-              checkOut,
-            }
-          : includeInactive
-            ? { includeInactive: 'true' }
-            : undefined,
+      query: {
+        includeInactive: includeInactive ? 'true' : undefined,
+        page,
+        pageSize,
+      },
     });
     return NextResponse.json(rooms);
   } catch (error) {

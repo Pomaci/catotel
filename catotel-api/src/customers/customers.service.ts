@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { CatGender, Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CreateCatDto } from './dto/create-cat.dto';
@@ -13,6 +13,11 @@ import {
   AdminCustomerListItemDto,
   AdminCustomerListResponseDto,
 } from './dto/admin-customer-list.dto';
+import {
+  AdminCatDetailDto,
+  AdminCatListItemDto,
+  AdminCatListResponseDto,
+} from './dto/admin-cat.dto';
 
 @Injectable()
 export class CustomersService {
@@ -27,7 +32,7 @@ export class CustomersService {
         reservations: {
           orderBy: { createdAt: 'desc' },
           include: {
-            room: true,
+            roomType: true,
             cats: { include: { cat: true } },
           },
           take: 5,
@@ -62,6 +67,7 @@ export class CustomersService {
       data: {
         ...dto,
         customerId: customer.id,
+        isNeutered: dto.isNeutered ?? false,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
       },
     });
@@ -81,6 +87,7 @@ export class CustomersService {
       data: {
         ...dto,
         customerId,
+        isNeutered: dto.isNeutered ?? false,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
       },
     });
@@ -99,6 +106,173 @@ export class CustomersService {
       where: { id: catId },
       data: {
         ...dto,
+        isNeutered: dto.isNeutered ?? cat.isNeutered,
+        birthDate: dto.birthDate ? new Date(dto.birthDate) : cat.birthDate,
+      },
+    });
+  }
+
+  async listAdminCats(params: {
+    search?: string;
+    gender?: CatGender;
+    isNeutered?: boolean;
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+  }): Promise<AdminCatListResponseDto> {
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(Math.max(1, params.pageSize ?? 25), 100);
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.CatWhereInput = {};
+    if (params.search?.trim()) {
+      const q = params.search.trim();
+      const digits = q.replace(/\D/g, '');
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { breed: { contains: q, mode: 'insensitive' } },
+        { customer: { user: { name: { contains: q, mode: 'insensitive' } } } },
+        { customer: { user: { email: { contains: q, mode: 'insensitive' } } } },
+        ...(digits
+          ? [{ customer: { phone: { contains: digits } } }]
+          : []),
+      ];
+    }
+    if (params.gender) {
+      where.gender = params.gender;
+    }
+    if (typeof params.isNeutered === 'boolean') {
+      where.isNeutered = params.isNeutered;
+    }
+
+    const sortDir: Prisma.SortOrder = params.sortDir === 'desc' ? 'desc' : 'asc';
+    const orderBy: Prisma.CatOrderByWithRelationInput[] = [];
+    switch (params.sortBy) {
+      case 'name':
+        orderBy.push({ name: sortDir });
+        break;
+      case 'owner':
+        orderBy.push({ customer: { user: { name: sortDir } } });
+        break;
+      case 'breed':
+        orderBy.push({ breed: sortDir });
+        break;
+      case 'gender':
+        orderBy.push({ gender: sortDir });
+        break;
+      case 'neutered':
+        orderBy.push({ isNeutered: sortDir });
+        break;
+      default:
+        orderBy.push({ createdAt: 'desc' });
+        break;
+    }
+    orderBy.push({ createdAt: 'desc' });
+
+    const [cats, total] = await Promise.all([
+      this.prisma.cat.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              phone: true,
+              user: { select: publicUserSelect },
+            },
+          },
+        },
+      }),
+      this.prisma.cat.count({ where }),
+    ]);
+
+    const items: AdminCatListItemDto[] = cats.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      breed: cat.breed,
+      gender: cat.gender,
+      birthDate: cat.birthDate?.toISOString() ?? null,
+      isNeutered: Boolean(cat.isNeutered),
+      createdAt: cat.createdAt.toISOString(),
+      owner: {
+        id: cat.customer.id,
+        name: cat.customer.user.name,
+        email: cat.customer.user.email,
+        phone: cat.customer.phone,
+      },
+    }));
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  async getAdminCat(catId: string): Promise<AdminCatDetailDto> {
+    const cat = await this.prisma.cat.findUnique({
+      where: { id: catId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            phone: true,
+            user: { select: publicUserSelect },
+          },
+        },
+      },
+    });
+    if (!cat) {
+      throw new NotFoundException('Cat not found');
+    }
+
+    return {
+      id: cat.id,
+      name: cat.name,
+      breed: cat.breed,
+      gender: cat.gender,
+      birthDate: cat.birthDate?.toISOString() ?? null,
+      isNeutered: Boolean(cat.isNeutered),
+      createdAt: cat.createdAt.toISOString(),
+      dietaryNotes: cat.dietaryNotes,
+      medicalNotes: cat.medicalNotes,
+      weightKg: cat.weightKg?.toNumber() ?? null,
+      photoUrl: cat.photoUrl,
+      owner: {
+        id: cat.customer.id,
+        name: cat.customer.user.name,
+        email: cat.customer.user.email,
+        phone: cat.customer.phone,
+      },
+    };
+  }
+
+  async createAdminCat(dto: CreateCatDto & { customerId: string }) {
+    await this.ensureCustomerById(dto.customerId);
+    return this.prisma.cat.create({
+      data: {
+        ...dto,
+        customerId: dto.customerId,
+        isNeutered: dto.isNeutered ?? false,
+        birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+      },
+    });
+  }
+
+  async updateAdminCat(catId: string, dto: UpdateCatDto) {
+    const cat = await this.prisma.cat.findUnique({ where: { id: catId } });
+    if (!cat) {
+      throw new NotFoundException('Cat not found');
+    }
+    return this.prisma.cat.update({
+      where: { id: catId },
+      data: {
+        ...dto,
+        isNeutered: dto.isNeutered ?? cat.isNeutered,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : cat.birthDate,
       },
     });

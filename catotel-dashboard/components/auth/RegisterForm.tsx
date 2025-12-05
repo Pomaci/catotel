@@ -9,6 +9,7 @@ import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { StatusBanner } from "@/components/ui/StatusBanner";
+import { HotelApi } from "@/lib/api/hotel";
 
 export function RegisterForm() {
   const { register: registerUser, error, loading } = useAuth();
@@ -37,21 +38,37 @@ export function RegisterForm() {
     e.preventDefault();
     setHelper(null);
     if (form.password !== form.confirm) {
-      setHelper("Şifreler eşleşmiyor.");
+      setHelper("Sifreler eslesmiyor.");
       return;
     }
     if (!agreements.terms) {
-      setHelper("Kullanım koşullarını kabul etmelisin.");
+      setHelper("Kullanim kosullarini kabul etmelisin.");
       return;
     }
+
     const profile = await registerUser(form.email, form.password, form.name);
     if (profile) {
-      setSuccess("Hesap oluÅŸturuldu! YÃ¶nlendiriliyorsun...");
-      setHelper(null);
+      let catError: string | null = null;
+      try {
+        const catName = form.catName.trim();
+        if (catName.length >= 2) {
+          await HotelApi.createCat({
+            name: catName,
+            isNeutered: form.neutered === "Evet",
+          });
+        }
+      } catch (err) {
+        const message = (err as any)?.message ?? "Kedi kaydi basarisiz oldu.";
+        catError = `Kedi kaydi olusturulamadi: ${message}`;
+        setHelper(catError);
+      }
+      setSuccess("Hesap olusturuldu! Yonlendiriliyorsun...");
+      if (!catError) {
+        setHelper(null);
+      }
       setTimeout(() => router.replace("/dashboard"), 300);
     }
   }
-
   return (
     <div className="w-full">
       <div className="mb-6 space-y-2">
@@ -183,3 +200,6 @@ export function RegisterForm() {
     </div>
   );
 }
+
+
+

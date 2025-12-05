@@ -3,7 +3,7 @@ import {
   type ReservationStatus as ReservationStatusValue,
 } from '@/types/enums';
 import { clientRequest } from '@/lib/http-client';
-import type { CareTask, Cat, CustomerProfile, Reservation, Room } from '@/types/hotel';
+import type { CareTask, Cat, CustomerProfile, Reservation, RoomType } from '@/types/hotel';
 
 export const HotelApi = {
   getProfile: () => clientRequest<CustomerProfile>('/api/customer/me'),
@@ -35,15 +35,18 @@ export const HotelApi = {
       },
       { csrf: true },
     ),
-  listRooms: (includeInactive = false, checkIn?: string, checkOut?: string) => {
+  listRooms: (includeInactive = false, checkIn?: string, checkOut?: string, partySize?: number) => {
     const params = new URLSearchParams();
     if (includeInactive) params.set('includeInactive', 'true');
     if (checkIn && checkOut) {
       params.set('checkIn', checkIn);
       params.set('checkOut', checkOut);
     }
+    if (partySize) {
+      params.set('partySize', String(partySize));
+    }
     const qs = params.toString();
-    return clientRequest<Room[]>(`/api/rooms${qs ? `?${qs}` : ''}`);
+    return clientRequest<RoomType[]>(`/api/room-types${qs ? `?${qs}` : ''}`);
   },
   listReservations: (status?: ReservationStatusValue) =>
     clientRequest<Reservation[]>(

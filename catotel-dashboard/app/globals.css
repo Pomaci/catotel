@@ -199,6 +199,18 @@ textarea {
   box-shadow: none;
 }
 
+/* Native selects: ensure contrast in dark mode */
+.admin-shell select {
+  background: var(--admin-surface-alt);
+  color: var(--admin-text-strong);
+  border-color: var(--admin-border);
+}
+
+.admin-shell option {
+  background: var(--admin-surface);
+  color: var(--admin-text-strong);
+}
+
 .admin-shell[data-theme='dark'] .status-badge[data-variant='created'] {
   background: rgba(255, 255, 255, 0.04);
   color: #e2e8f0;
@@ -307,6 +319,114 @@ textarea {
   background: rgba(148, 163, 184, 0.2);
   color: #cbd5e1;
   border-color: rgba(148, 163, 184, 0.35);
+}
+.room-type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  line-height: 1.2;
+}
+
+.room-type-pill[data-variant='standard'] {
+  background: rgba(148, 163, 184, 0.16);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.32);
+}
+
+.room-type-pill[data-variant='deluxe'] {
+  background: rgba(79, 209, 197, 0.18);
+  color: #0f766e;
+  border-color: rgba(79, 209, 197, 0.35);
+}
+
+.room-type-pill[data-variant='suite'] {
+  background: rgba(234, 179, 8, 0.22);
+  color: #92400e;
+  border-color: rgba(234, 179, 8, 0.35);
+}
+
+.room-type-pill[data-variant='large'] {
+  background: rgba(255, 159, 67, 0.18);
+  color: #b54708;
+  border-color: rgba(255, 159, 67, 0.35);
+}
+
+.room-type-pill[data-variant='special'] {
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.admin-shell[data-theme='dark'] .room-type-pill[data-variant='standard'] {
+  background: rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.admin-shell[data-theme='dark'] .room-type-pill[data-variant='deluxe'] {
+  background: rgba(79, 209, 197, 0.26);
+  color: #d1faf5;
+  border-color: rgba(79, 209, 197, 0.45);
+}
+
+.admin-shell[data-theme='dark'] .room-type-pill[data-variant='suite'] {
+  background: rgba(234, 179, 8, 0.32);
+  color: #fef3c7;
+  border-color: rgba(234, 179, 8, 0.5);
+}
+
+.admin-shell[data-theme='dark'] .room-type-pill[data-variant='large'] {
+  background: rgba(255, 159, 67, 0.28);
+  color: #ffe7c3;
+  border-color: rgba(255, 159, 67, 0.5);
+}
+
+.admin-shell[data-theme='dark'] .room-type-pill[data-variant='special'] {
+  background: rgba(59, 130, 246, 0.28);
+  color: #dbeafe;
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.room-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.room-status-pill[data-status='active'] {
+  background: rgba(16, 185, 129, 0.16);
+  color: #0f9b69;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.room-status-pill[data-status='inactive'] {
+  background: rgba(148, 163, 184, 0.16);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.admin-shell[data-theme='dark'] .room-status-pill[data-status='active'] {
+  background: rgba(16, 185, 129, 0.28);
+  color: #bbf7d0;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.admin-shell[data-theme='dark'] .room-status-pill[data-status='inactive'] {
+  background: rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.4);
 }
 
 .timeline {

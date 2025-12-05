@@ -27,7 +27,7 @@ export class ReservationsService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        room: true,
+        roomType: true,
         customer: { include: { user: { select: publicUserSelect } } },
         cats: { include: { cat: true } },
         services: { include: { service: true } },
@@ -39,7 +39,7 @@ export class ReservationsService {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
       include: {
-        room: true,
+        roomType: true,
         customer: { include: { user: { select: publicUserSelect } } },
         cats: { include: { cat: true } },
         services: { include: { service: true } },
@@ -61,6 +61,10 @@ export class ReservationsService {
       role,
       dto.customerId,
     );
+    const roomTypeId = dto.roomTypeId ?? (dto as any).roomId;
+    if (!roomTypeId) {
+      throw new BadRequestException('roomTypeId is required');
+    }
 
     const checkIn = new Date(dto.checkIn);
     const checkOut = new Date(dto.checkOut);
@@ -86,38 +90,38 @@ export class ReservationsService {
     }
     await this.ensureCatsAvailable(dto.catIds, checkIn, checkOut);
 
-    const room = await this.prisma.room.findUnique({
-      where: { id: dto.roomId },
+    const roomType = await this.prisma.roomType.findUnique({
+      where: { id: roomTypeId },
     });
-    if (!room || !room.isActive) {
-      throw new BadRequestException('Room not available');
+    if (!roomType || !roomType.isActive) {
+      throw new BadRequestException('Room type not available');
     }
-    if (room.capacity < cats.length) {
+    if (roomType.capacity < cats.length) {
       throw new BadRequestException('Room capacity exceeded');
     }
 
-    const overlapping = await this.prisma.reservation.findFirst({
-      where: {
-        roomId: room.id,
-        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-        OR: [
-          {
-            checkIn: { lt: checkOut },
-            checkOut: { gt: checkIn },
-          },
-        ],
-      },
-    });
-    if (overlapping) {
-      throw new BadRequestException('Room already booked for selected dates');
+    const activeRoomCount = await this.getActiveRoomCount(roomType.id);
+    if (activeRoomCount <= 0) {
+      throw new BadRequestException(
+        'No active rooms exist for the selected room type',
+      );
     }
+
+    const allowRoomSharing =
+      dto.allowRoomSharing === undefined ? true : !!dto.allowRoomSharing;
+    const requiredSlots = allowRoomSharing ? cats.length : roomType.capacity;
+
+    await this.assertRoomTypeAvailability(
+      roomType,
+      checkIn,
+      checkOut,
+      requiredSlots,
+    );
 
     let nights = differenceInCalendarDays(checkOut, checkIn);
     if (nights <= 0) {
       nights = 1;
     }
-    const nightlyRate = new Prisma.Decimal(room.nightlyRate);
-    let totalPrice = nightlyRate.mul(nights);
 
     const addons =
       dto.addons && dto.addons.length
@@ -133,9 +137,6 @@ export class ReservationsService {
     if (addons.length) {
       for (const addon of addons) {
         const requested = dto.addons!.find((a) => a.serviceId === addon.id)!;
-        totalPrice = totalPrice.add(
-          new Prisma.Decimal(addon.price).mul(requested.quantity),
-        );
         reservationServices.push({
           serviceId: addon.id,
           quantity: requested.quantity,
@@ -148,33 +149,46 @@ export class ReservationsService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        const overlapping = await tx.reservation.findFirst({
-          where: {
-            roomId: room.id,
-            status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-            OR: [
-              {
-                checkIn: { lt: checkOut },
-                checkOut: { gt: checkIn },
-              },
-            ],
-          },
+        const freshRoomType = await tx.roomType.findUnique({
+          where: { id: roomType.id },
         });
-        if (overlapping) {
-          throw new BadRequestException(
-            'Room already booked for selected dates',
-          );
+        if (!freshRoomType || !freshRoomType.isActive) {
+          throw new BadRequestException('Room type not available');
         }
+        if (freshRoomType.capacity < cats.length) {
+          throw new BadRequestException('Room capacity exceeded');
+        }
+
+        await this.assertRoomTypeAvailability(
+          freshRoomType,
+          checkIn,
+          checkOut,
+          requiredSlots,
+          undefined,
+          tx,
+        );
+        const totalPrice = this.calculateTotalPrice(
+          freshRoomType.nightlyRate,
+          nights,
+          reservationServices,
+          {
+            capacity: freshRoomType.capacity,
+            catCount: cats.length,
+            allowRoomSharing,
+          },
+        );
 
         return tx.reservation.create({
           data: {
             code,
             customerId: targetCustomer.id,
-            roomId: room.id,
+            roomTypeId: freshRoomType.id,
             checkIn,
             checkOut,
             totalPrice,
             specialRequests: dto.specialRequests,
+            allowRoomSharing,
+            reservedSlots: requiredSlots,
             cats: {
               createMany: {
                 data: dto.catIds.map((catId) => ({ catId })),
@@ -189,7 +203,7 @@ export class ReservationsService {
               : undefined,
           },
           include: {
-            room: true,
+            roomType: true,
             cats: { include: { cat: true } },
             services: { include: { service: true } },
           },
@@ -230,7 +244,7 @@ export class ReservationsService {
   async update(id: string, role: UserRole, dto: UpdateReservationDto) {
     const existing = await this.prisma.reservation.findUnique({
       where: { id },
-      include: { cats: true, room: true },
+      include: { cats: true, roomType: true },
     });
     if (!existing) {
       throw new NotFoundException('Reservation not found');
@@ -252,10 +266,13 @@ export class ReservationsService {
       throw new BadRequestException('Check-in cannot be in the past');
     }
 
-    const roomId = dto.roomId ?? existing.roomId;
-    const room = await this.prisma.room.findUnique({ where: { id: roomId } });
-    if (!room || !room.isActive) {
-      throw new BadRequestException('Room not available');
+    const requestedRoomTypeId = dto.roomTypeId ?? (dto as any).roomId;
+    const roomTypeId = requestedRoomTypeId ?? existing.roomTypeId;
+    const roomType = await this.prisma.roomType.findUnique({
+      where: { id: roomTypeId },
+    });
+    if (!roomType || !roomType.isActive) {
+      throw new BadRequestException('Room type not available');
     }
 
     const catIds = dto.catIds ?? existing.cats.map((c) => c.catId);
@@ -269,27 +286,23 @@ export class ReservationsService {
     if (cats.length !== catIds.length) {
       throw new BadRequestException('Some cats were not found');
     }
-    if (room.capacity < cats.length) {
+    if (roomType.capacity < cats.length) {
       throw new BadRequestException('Room capacity exceeded');
     }
     await this.ensureCatsAvailable(catIds, checkIn, checkOut, id);
+    const allowRoomSharing =
+      dto.allowRoomSharing === undefined
+        ? existing.allowRoomSharing ?? true
+        : !!dto.allowRoomSharing;
+    const requiredSlots = allowRoomSharing ? cats.length : roomType.capacity;
 
-    const overlapping = await this.prisma.reservation.findFirst({
-      where: {
-        id: { not: id },
-        roomId: room.id,
-        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-        OR: [
-          {
-            checkIn: { lt: checkOut },
-            checkOut: { gt: checkIn },
-          },
-        ],
-      },
-    });
-    if (overlapping) {
-      throw new BadRequestException('Room already booked for selected dates');
-    }
+    await this.assertRoomTypeAvailability(
+      roomType,
+      checkIn,
+      checkOut,
+      requiredSlots,
+      id,
+    );
 
     const addons =
       dto.addons && dto.addons.length
@@ -316,12 +329,6 @@ export class ReservationsService {
 
     let nights = differenceInCalendarDays(checkOut, checkIn);
     if (nights <= 0) nights = 1;
-    let totalPrice = new Prisma.Decimal(room.nightlyRate).mul(nights);
-    if (reservationServices.length) {
-      for (const service of reservationServices) {
-        totalPrice = totalPrice.add(service.unitPrice.mul(service.quantity));
-      }
-    }
 
     const status =
       dto.status && this.isValidTransition(existing.status, dto.status)
@@ -357,14 +364,44 @@ export class ReservationsService {
 
     return this.prisma.$transaction(
       async (tx) => {
+        const freshRoomType = await tx.roomType.findUnique({
+          where: { id: roomType.id },
+        });
+        if (!freshRoomType || !freshRoomType.isActive) {
+          throw new BadRequestException('Room type not available');
+        }
+        if (freshRoomType.capacity < cats.length) {
+          throw new BadRequestException('Room capacity exceeded');
+        }
+        await this.assertRoomTypeAvailability(
+          freshRoomType,
+          checkIn,
+          checkOut,
+          requiredSlots,
+          id,
+          tx,
+        );
+        const totalPrice = this.calculateTotalPrice(
+          freshRoomType.nightlyRate,
+          nights,
+          reservationServices,
+          {
+            capacity: freshRoomType.capacity,
+            catCount: cats.length,
+            allowRoomSharing,
+          },
+        );
+
         const updated = await tx.reservation.update({
           where: { id },
           data: {
-            roomId: room.id,
+            roomTypeId: freshRoomType.id,
             checkIn,
             checkOut,
             totalPrice,
             specialRequests: dto.specialRequests ?? existing.specialRequests,
+            allowRoomSharing,
+            reservedSlots: requiredSlots,
             status,
             checkInForm,
             checkOutForm,
@@ -382,7 +419,7 @@ export class ReservationsService {
               : undefined,
           },
           include: {
-            room: true,
+            roomType: true,
             customer: { include: { user: { select: publicUserSelect } } },
             cats: { include: { cat: true } },
             services: { include: { service: true } },
@@ -421,6 +458,78 @@ export class ReservationsService {
 
     // İleri veya en fazla bir adım geri gitmeye izin ver (check-out -> check-in, check-in -> onay vb.)
     return nextIdx >= currentIdx - 1;
+  }
+
+  private calculateTotalPrice(
+    nightlyRate: Prisma.Decimal | number | string,
+    nights: number,
+    services: { unitPrice: Prisma.Decimal; quantity: number }[],
+    options: { capacity: number; catCount: number; allowRoomSharing: boolean },
+  ) {
+    const perCatRate = new Prisma.Decimal(nightlyRate).div(
+      options.capacity || 1,
+    );
+    const baseNightly = options.allowRoomSharing
+      ? perCatRate.mul(options.catCount)
+      : new Prisma.Decimal(nightlyRate);
+
+    let total = baseNightly.mul(nights);
+    for (const service of services) {
+      total = total.add(service.unitPrice.mul(service.quantity));
+    }
+    return total;
+  }
+
+  private getActiveRoomCount(
+    roomTypeId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = (tx ?? this.prisma) as PrismaService | Prisma.TransactionClient;
+    return client.room.count({
+      where: { roomTypeId, isActive: true },
+    });
+  }
+
+  private async assertRoomTypeAvailability(
+    room: { id: string; overbookingLimit: number; capacity: number },
+    checkIn: Date,
+    checkOut: Date,
+    requiredSlots: number,
+    excludeReservationId?: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const [overlapping, activeRoomCount] = await Promise.all([
+      client.reservation.findMany({
+        where: {
+          id: excludeReservationId ? { not: excludeReservationId } : undefined,
+          roomTypeId: room.id,
+          status: {
+            in: [
+              ReservationStatus.PENDING,
+              ReservationStatus.CONFIRMED,
+              ReservationStatus.CHECKED_IN,
+            ],
+          },
+          checkIn: { lt: checkOut },
+          checkOut: { gt: checkIn },
+        },
+        select: { reservedSlots: true },
+      }),
+      this.getActiveRoomCount(room.id, tx),
+    ]);
+
+    const totalSlots =
+      (activeRoomCount + room.overbookingLimit) * (room.capacity || 1);
+    const takenSlots = overlapping.reduce(
+      (sum, res) => sum + (res.reservedSlots > 0 ? res.reservedSlots : room.capacity || 1),
+      0,
+    );
+    const remaining = totalSlots - takenSlots;
+    if (remaining < requiredSlots) {
+      throw new BadRequestException('Room type not available for selected dates');
+    }
+    return remaining;
   }
 
   private async ensureCatsAvailable(

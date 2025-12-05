@@ -1,11 +1,11 @@
 "use client";
 
-import type { Room } from "@/types/hotel";
+import type { RoomType } from "@/types/hotel";
 import { formatCurrency } from "@/lib/utils/format";
 import { Badge } from "@/components/ui/Badge";
 import { Home, Users } from "lucide-react";
 
-export function RoomsSection({ rooms }: { rooms: Room[] | undefined }) {
+export function RoomsSection({ rooms }: { rooms: RoomType[] | undefined }) {
   return (
     <section className="surface-card space-y-6">
       <header className="flex items-center justify-between">
@@ -38,7 +38,7 @@ export function RoomsSection({ rooms }: { rooms: Room[] | undefined }) {
             <div className="mt-4 flex items-center justify-between text-sm">
               <span className="inline-flex items-center gap-1 text-slate-500">
                 <Users className="h-4 w-4 text-slate-400" />
-                {room.capacity} kedi
+                {room.capacity} kedi | {room.totalUnits ?? 0} oda
               </span>
               <span className="text-lg font-semibold text-lagoon-600">
                 {formatCurrency(room.nightlyRate)}/gece
@@ -67,4 +67,3 @@ export function RoomsSection({ rooms }: { rooms: Room[] | undefined }) {
     </section>
   );
 }
-

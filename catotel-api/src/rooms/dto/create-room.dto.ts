@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
-  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
+  Matches,
 } from 'class-validator';
 
 export class CreateRoomDto {
@@ -15,22 +15,16 @@ export class CreateRoomDto {
   @MaxLength(50)
   name!: string;
 
+  @ApiProperty({ description: 'Room type id to link pricing/capacity' })
+  @IsString()
+  @Matches(/^c[a-z0-9]{24}$/i, { message: 'roomTypeId must be a valid cuid' })
+  roomTypeId!: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   description?: string;
-
-  @ApiProperty({ default: 1 })
-  @IsNumber()
-  capacity!: number;
-
-  @ApiProperty({ description: 'Nightly rate in USD' })
-  @IsNumber()
-  nightlyRate!: number;
-
-  @ApiPropertyOptional({ description: 'JSON string of amenities' })
-  @IsOptional()
-  amenities?: Record<string, any>;
 
   @ApiPropertyOptional()
   @IsOptional()

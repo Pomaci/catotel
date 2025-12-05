@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -15,7 +15,7 @@ import {
   Plus,
   UserRound,
 } from "lucide-react";
-import type { Cat, Reservation, Room } from "@/types/hotel";
+import type { Cat, Reservation, RoomType } from "@/types/hotel";
 import { AdminApi } from "@/lib/api/admin";
 import { HotelApi } from "@/lib/api/hotel";
 import type { CustomerSearch } from "@/types/user";
@@ -24,17 +24,19 @@ type StepKey = "customer" | "cats" | "dates" | "pricing";
 const stepOrder: StepKey[] = ["customer", "cats", "dates", "pricing"];
 
 type WizardValues = {
-  roomId: string | null;
+  roomTypeId: string | null;
   catIds: string[];
   checkIn: string;
   checkOut: string;
   specialRequests?: string;
   customerId?: string | null;
+  allowRoomSharing?: boolean;
 };
 
 export function ReservationWizard({
   mode = "create",
   rooms = [],
+  roomTypes = [],
   cats = [],
   initialReservation,
   customerName,
@@ -45,7 +47,8 @@ export function ReservationWizard({
   initialStep,
 }: {
   mode?: "create" | "edit";
-  rooms?: Room[];
+  rooms?: RoomType[];
+  roomTypes?: RoomType[];
   cats?: Cat[];
   initialReservation?: Reservation | null;
   customerName?: string | null;
@@ -73,8 +76,11 @@ export function ReservationWizard({
   const [selectedCats, setSelectedCats] = useState<string[]>(
     initialReservation?.cats.map((c) => c.cat.id) ?? []
   );
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(
-    initialReservation?.room.id ?? null
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string | null>(
+    initialReservation?.roomType.id ?? null
+  );
+  const [allowRoomSharing, setAllowRoomSharing] = useState<boolean>(
+    initialReservation?.allowRoomSharing ?? true
   );
   const [checkIn, setCheckIn] = useState(
     initialReservation?.checkIn.slice(0, 10) ?? ""
@@ -98,6 +104,7 @@ export function ReservationWizard({
   const [searchResults, setSearchResults] = useState<CustomerSearch[]>([]);
   const [searching, setSearching] = useState(false);
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const selectedCatCount = selectedCats.length;
 
   const {
     data: customerCats = [],
@@ -120,14 +127,14 @@ export function ReservationWizard({
   });
 
   const { data: availabilityRooms, isFetching: loadingAvailability } = useQuery({
-    queryKey: ["rooms-availability", checkIn, checkOut],
+    queryKey: ["rooms-availability", checkIn, checkOut, selectedCatCount],
     enabled: Boolean(checkIn && checkOut),
-    queryFn: () => HotelApi.listRooms(false, checkIn, checkOut),
+    queryFn: () => HotelApi.listRooms(false, checkIn, checkOut, selectedCatCount || undefined),
   });
 
   useEffect(() => {
     if (initialReservation) {
-      setSelectedRoom(initialReservation.room.id);
+      setSelectedRoomTypeId(initialReservation.roomType.id);
       setSelectedCats(initialReservation.cats.map((c) => c.cat.id));
       setCheckIn(initialReservation.checkIn.slice(0, 10));
       setCheckOut(initialReservation.checkOut.slice(0, 10));
@@ -138,6 +145,11 @@ export function ReservationWizard({
           null
       );
       setSelectedCustomerId(reservationCustomerId);
+      setAllowRoomSharing(
+        initialReservation.allowRoomSharing === undefined
+          ? true
+          : initialReservation.allowRoomSharing
+      );
       if (isEdit && initialStep) {
         setStep(initialStep);
       } else if (isEdit) {
@@ -164,9 +176,9 @@ export function ReservationWizard({
       setSelectedCustomer(created.name ?? created.email);
       setSelectedCustomerId(created.id ?? null);
       setCustomerError(null);
-      setCustomerSuccess("Yeni musteri olusturuldu");
+      setCustomerSuccess("Yeni müşteri oluşturuldu");
     } catch (err: any) {
-      setCustomerError(err?.message ?? "M��teri olu�turulamad�");
+      setCustomerError(err?.message ?? "Müşteri oluşturulamadı");
       setCustomerSuccess(null);
     } finally {
       setCreatingCustomer(false);
@@ -195,7 +207,7 @@ export function ReservationWizard({
     }
   }
 
-  const hasCustomerSelected = Boolean(selectedCustomerId || selectedCustomer);
+  const hasCustomerSelected = Boolean(selectedCustomerId);
   const hasSelectedCats = selectedCats.length > 0;
   const isCheckInBeforeToday = checkIn && checkIn < todayIso;
   const isCheckOutBeforeCheckIn = checkIn && checkOut && checkOut <= checkIn;
@@ -208,7 +220,7 @@ export function ReservationWizard({
     );
     return diffDays > 0 ? diffDays : null;
   }, [checkIn, checkOut]);
-  const roomList = availabilityRooms ?? rooms ?? [];
+  const roomList = availabilityRooms ?? roomTypes ?? rooms ?? [];
 
   const validationMessageForStep = (currentStep: StepKey) => {
     if (currentStep === "customer" && !hasCustomerSelected)
@@ -224,7 +236,7 @@ export function ReservationWizard({
       if (isCheckInBeforeToday) return "Giriş tarihi bugünden önce olamaz.";
       if (isCheckOutBeforeCheckIn)
         return "Çıkış tarihi giriş tarihinden sonra olmalı.";
-      if (!selectedRoom) return "Lütfen oda seç.";
+      if (!selectedRoomTypeId) return "Lütfen oda tipi seç.";
     }
     return null;
   };
@@ -287,12 +299,13 @@ export function ReservationWizard({
                 return;
               }
               await onSubmitAction({
-                roomId: selectedRoom,
+                roomTypeId: selectedRoomTypeId,
                 catIds: selectedCats,
                 checkIn,
                 checkOut,
                 specialRequests: notes,
                 customerId: selectedCustomerId,
+                allowRoomSharing,
               });
             }}
           >
@@ -360,7 +373,7 @@ export function ReservationWizard({
                     }}
                     className={clsx(
                       "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm transition",
-                      selectedCustomer === (cust.name ?? cust.email)
+                      selectedCustomerId === cust.id
                         ? "bg-[var(--admin-highlight-muted)] text-[var(--admin-text-strong)]"
                         : "hover:bg-[var(--admin-highlight-muted)]/60 text-[var(--admin-text-strong)]"
                     )}
@@ -381,7 +394,7 @@ export function ReservationWizard({
                         )}
                       </div>
                     </div>
-                    {selectedCustomer === (cust.name ?? cust.email) && (
+                    {selectedCustomerId === cust.id && (
                       <Check className="h-4 w-4 text-peach-500" aria-hidden />
                     )}
                   </button>
@@ -438,7 +451,7 @@ export function ReservationWizard({
         <StepCard title="Kedi seçimi">
           {!hasCustomerSelected ? (
             <p className="text-sm text-[var(--admin-muted)]">
-              �lerlemek i�in �nce m��teri se�.
+              İlerlemek için önce müşteri seç.
             </p>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
@@ -530,9 +543,7 @@ export function ReservationWizard({
                     });
                   }}
                 >
-                  {createCustomerCat.isPending
-                    ? "Kaydediliyor..."
-                    : "Kedi Ekle"}
+                  {createCustomerCat.isPending ? "Kaydediliyor..." : "Kedi Ekle"}
                 </button>
               </div>
             </div>
@@ -541,7 +552,7 @@ export function ReservationWizard({
       )}
 
       {step === "dates" && (
-        <StepCard title="Tarih & Oda Uygunluğu">
+        <StepCard title="Tarih & Oda Tipi Uygunluğu">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
             <div className="space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-4 admin-border">
               <p className="text-sm font-semibold">Tarih seç</p>
@@ -566,33 +577,48 @@ export function ReservationWizard({
               </div>
             </div>
             <div className="space-y-3">
-              <p className="text-sm font-semibold">Oda uygunluk</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Oda tipi uygunluk</p>
+                <p className="text-xs font-semibold text-[var(--admin-muted)]">
+                  Seçtiğin kedilerin kapasiteye sığdığından emin ol.
+                </p>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {roomList.map((room) => {
-                  const availabilityKnown = room.available !== undefined;
+                  const totalUnits = room.totalUnits ?? 0;
+                  const allowedUnits = totalUnits + (room.overbookingLimit ?? 0);
+                  const availableUnits =
+                    room.availableUnits ?? (room.available === true ? allowedUnits : null);
+                  const availabilityKnown = availableUnits !== null;
+                  const isCurrentRoom =
+                    selectedRoomTypeId === room.id ||
+                    initialReservation?.roomType?.id === room.id;
+                  const capacityOk = room.capacityOk ?? room.capacity >= selectedCatCount;
+                  const capacityWarning = selectedCatCount > 0 && !capacityOk;
                   const isUnavailable =
-                    availabilityKnown && room.available === false;
-                  const isCurrentRoom = initialReservation?.room?.id === room.id;
-                  const badgeLabel = !availabilityKnown
-                    ? "Uygunluk bilinmiyor"
-                    : room.available === false
-                    ? isCurrentRoom
-                      ? "Mevcut oda"
-                      : "Dolu"
-                    : "Uygun";
+                    availabilityKnown && (!availableUnits || availableUnits <= 0);
+                  const badgeLabel = capacityWarning
+                    ? `Kapasite yetersiz (${room.capacity} kedi)`
+                    : availabilityKnown && availableUnits
+                    ? `${availableUnits}/${allowedUnits} uygun`
+                    : isCurrentRoom
+                    ? "Mevcut seçim"
+                    : availabilityKnown
+                    ? "Dolu"
+                    : "Uygunluk bilinmiyor";
                   return (
                     <button
                       key={room.id}
                       type="button"
                       onClick={() => {
-                        if (isUnavailable && !isCurrentRoom) return;
-                        setSelectedRoom(room.id);
+                        if ((isUnavailable || capacityWarning) && !isCurrentRoom) return;
+                        setSelectedRoomTypeId(room.id);
                       }}
                       className={clsx(
-                        "flex flex-col items-start gap-1 rounded-2xl border px-3 py-3 text-left transition admin-border",
-                        selectedRoom === room.id
+                        "flex flex-col items-start gap-2 rounded-2xl border px-3 py-3 text-left transition admin-border",
+                        selectedRoomTypeId === room.id
                           ? "border-peach-300 bg-[var(--admin-highlight-muted)]"
-                          : isUnavailable && !isCurrentRoom
+                          : (isUnavailable || capacityWarning) && !isCurrentRoom
                           ? "opacity-60 cursor-not-allowed"
                           : "hover:border-peach-200"
                       )}
@@ -602,14 +628,14 @@ export function ReservationWizard({
                         <p className="text-sm font-semibold">{room.name}</p>
                       </div>
                       <p className="text-xs text-[var(--admin-muted)]">
-                        {room.type ?? "Tip"}
+                        Kapasite: {room.capacity} kedi | Aktif oda: {totalUnits}
                       </p>
                       <span
                         className={clsx(
                           "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.25em]",
-                          !availabilityKnown
-                            ? "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-200"
-                            : room.available === false && !isCurrentRoom
+                          capacityWarning
+                            ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
+                            : isUnavailable && !isCurrentRoom
                             ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
                             : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
                         )}
@@ -620,6 +646,39 @@ export function ReservationWizard({
                   );
                 })}
               </div>
+              {selectedRoomTypeId && (
+                <div className="rounded-2xl border bg-[var(--admin-surface-alt)] p-4 admin-border">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--admin-text-strong)]">
+                        Odayı paylaşma tercihi
+                      </p>
+                      <p className="text-xs text-[var(--admin-muted)]">
+                        Kapasite {roomList.find((r) => r.id === selectedRoomTypeId)?.capacity ?? "-"} kedi. Bu rezervasyonda diğer müşterilerle paylaşmaya izin verip vermediğini seç.
+                      </p>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold admin-border">
+                      <span className="text-[var(--admin-text-strong)]">
+                        {allowRoomSharing ? "Paylaşmaya açık" : "Özel kullanım"}
+                      </span>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input
+                          type="checkbox"
+                          className="peer sr-only"
+                          checked={!allowRoomSharing}
+                          onChange={() => setAllowRoomSharing((v) => !v)}
+                        />
+                        <div className="h-6 w-11 rounded-full bg-[var(--admin-border)] peer-checked:bg-peach-400 transition">
+                          <div className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5 shadow" />
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-[var(--admin-muted)]">
+                    Özel kullanım seçersen, oda kapasitesinin tamamı bu rezervasyon için bloklanır ve ücret tüm kapasite üzerinden hesaplanır. Paylaşmaya açık seçersen sadece kendi kedilerinin slotları kadar ücretlendirilir ve diğer müşteriler kalan slotları kullanabilir.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </StepCard>
@@ -673,12 +732,13 @@ export function ReservationWizard({
                     return;
                   }
                   await onSubmitAction({
-                    roomId: selectedRoom,
+                    roomTypeId: selectedRoomTypeId,
                     catIds: selectedCats,
                     checkIn,
                     checkOut,
                     specialRequests: notes,
                     customerId: selectedCustomerId,
+                    allowRoomSharing,
                   });
                 }}
               >
@@ -706,7 +766,6 @@ export function ReservationWizard({
           disabled={step === "pricing" || nextDisabled}
         >
           İleri
-          <ChevronRight className="h-4 w-4" aria-hidden />
         </button>
       </div>
     </div>

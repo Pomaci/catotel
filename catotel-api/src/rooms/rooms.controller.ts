@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  BadRequestException,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
@@ -24,21 +15,8 @@ export class RoomsController {
   @Get()
   @Public()
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
-  @ApiQuery({ name: 'checkIn', required: false, type: String })
-  @ApiQuery({ name: 'checkOut', required: false, type: String })
-  async list(
-    @Query('includeInactive') includeInactive?: string,
-    @Query('checkIn') checkIn?: string,
-    @Query('checkOut') checkOut?: string,
-  ) {
-    const activeOnly = includeInactive !== 'true';
-    if ((checkIn && !checkOut) || (!checkIn && checkOut)) {
-      throw new BadRequestException('Both checkIn and checkOut are required');
-    }
-    if (checkIn && checkOut) {
-      return this.rooms.listWithAvailability(checkIn, checkOut, activeOnly);
-    }
-    return this.rooms.list(activeOnly);
+  list(@Query('includeInactive') includeInactive?: string) {
+    return this.rooms.list(includeInactive === 'true');
   }
 
   @ApiBearerAuth('access-token')

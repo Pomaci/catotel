@@ -163,8 +163,8 @@ class CheckOutFormDto {
 export class UpdateReservationDto {
   @IsOptional()
   @IsString()
-  @Matches(/^c[a-z0-9]{24}$/i, { message: 'roomId must be a valid cuid' })
-  roomId?: string;
+  @Matches(/^c[a-z0-9]{24}$/i, { message: 'roomTypeId must be a valid cuid' })
+  roomTypeId?: string;
 
   @IsOptional()
   @IsDateString()
@@ -207,4 +207,8 @@ export class UpdateReservationDto {
   @ValidateNested()
   @Type(() => CheckOutFormDto)
   checkOutForm?: CheckOutFormDto;
+
+  @IsOptional()
+  @IsBoolean()
+  allowRoomSharing?: boolean;
 }

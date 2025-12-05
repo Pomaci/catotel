@@ -9,7 +9,7 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 
 export default function ReservationCreatePage() {
   const queryClient = useQueryClient();
-  const { data: rooms } = useQuery({ queryKey: ["rooms"], queryFn: () => HotelApi.listRooms() });
+  const { data: roomTypes } = useQuery({ queryKey: ["room-types"], queryFn: () => HotelApi.listRooms() });
   const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: () => HotelApi.listCats() });
   const { data: profile } = useQuery({ queryKey: ["customer-profile"], queryFn: () => HotelApi.getProfile() });
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export default function ReservationCreatePage() {
   });
 
   async function handleSubmit(values: {
-    roomId: string | null;
+    roomTypeId: string | null;
     catIds: string[];
     checkIn: string;
     checkOut: string;
@@ -43,12 +43,12 @@ export default function ReservationCreatePage() {
   }) {
     setError(null);
     setSuccess(null);
-    if (!values.roomId || !values.catIds.length || !values.checkIn || !values.checkOut) {
-      setError("Oda, tarih ve kedi seçmek zorunludur.");
+    if (!values.roomTypeId || !values.catIds.length || !values.checkIn || !values.checkOut) {
+      setError("Oda tipi, tarih ve kedi seçmek zorunludur.");
       return;
     }
     await createMutation.mutateAsync({
-      roomId: values.roomId,
+      roomTypeId: values.roomTypeId,
       catIds: values.catIds,
       checkIn: values.checkIn,
       checkOut: values.checkOut,
@@ -68,7 +68,7 @@ export default function ReservationCreatePage() {
       )}
       <ReservationWizard
         mode="create"
-        rooms={rooms}
+        roomTypes={roomTypes}
         cats={cats}
         customerName={profile?.user.name ?? profile?.user.email ?? null}
         onSubmitAction={handleSubmit}

@@ -20,6 +20,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { StaffModule } from './staff/staff.module';
 import { MailModule } from './mail/mail.module';
+import { RoomTypesModule } from './room-types/room-types.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { MailModule } from './mail/mail.module';
     UserModule,
     PrismaModule,
     CustomersModule,
+    RoomTypesModule,
     RoomsModule,
     ReservationsModule,
     StaffModule,

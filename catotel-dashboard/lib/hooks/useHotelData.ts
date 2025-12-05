@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReservationStatus } from '@/types/enums';
 import { HotelApi } from '@/lib/api/hotel';
-import type { CareTask, Cat, CustomerProfile, Reservation, Room } from '@/types/hotel';
+import type { CareTask, Cat, CustomerProfile, Reservation, RoomType } from '@/types/hotel';
 
 export function useCustomerProfile(enabled = true) {
   return useQuery<CustomerProfile>({
@@ -59,8 +59,8 @@ export function useUpdateCat() {
 }
 
 export function useRooms(includeInactive = false, enabled = true) {
-  return useQuery<Room[]>({
-    queryKey: ['rooms', includeInactive],
+  return useQuery<RoomType[]>({
+    queryKey: ['room-types', includeInactive],
     queryFn: () => HotelApi.listRooms(includeInactive),
     enabled,
   });

@@ -23,8 +23,10 @@ export class ReservationAddonDto {
 
 export class CreateReservationDto {
   @IsString()
-  @Matches(/^c[a-z0-9]{24}$/i, { message: 'roomId must be a valid cuid' })
-  roomId!: string;
+  @Matches(/^c[a-z0-9]{24}$/i, {
+    message: 'roomTypeId must be a valid cuid',
+  })
+  roomTypeId!: string;
 
   @IsDateString()
   checkIn!: string;
@@ -55,4 +57,7 @@ export class CreateReservationDto {
   @IsString()
   @Matches(/^c[a-z0-9]{24}$/i, { message: 'customerId must be a valid cuid' })
   customerId?: string;
+
+  @IsOptional()
+  allowRoomSharing?: boolean;
 }

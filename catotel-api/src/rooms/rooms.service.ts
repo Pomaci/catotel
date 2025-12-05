@@ -1,69 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
-import { BadRequestException } from '@nestjs/common';
-import { startOfDay } from 'date-fns';
 
 @Injectable()
 export class RoomsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(activeOnly = true) {
+  list(includeInactive = false) {
     return this.prisma.room.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
+      where: includeInactive ? undefined : { isActive: true },
       orderBy: { name: 'asc' },
+      include: { roomType: true },
     });
   }
 
-  async listWithAvailability(
-    checkIn: string,
-    checkOut: string,
-    activeOnly = true,
-  ) {
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    if (start >= end) {
-      throw new BadRequestException('checkOut must be after checkIn');
-    }
-    if (start < startOfDay(new Date())) {
-      throw new BadRequestException('checkIn cannot be in the past');
-    }
-
-    const rooms = await this.prisma.room.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
-      orderBy: { name: 'asc' },
+  async create(dto: CreateRoomDto) {
+    const roomType = await this.prisma.roomType.findUnique({
+      where: { id: dto.roomTypeId },
     });
-    if (!rooms.length) return [];
-
-    const overlaps = await this.prisma.reservation.findMany({
-      where: {
-        roomId: { in: rooms.map((r) => r.id) },
-        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-        checkIn: { lt: end },
-        checkOut: { gt: start },
-      },
-      select: { roomId: true },
-    });
-    const busy = new Set(overlaps.map((r) => r.roomId));
-
-    return rooms.map((room) => ({
-      ...room,
-      available: !busy.has(room.id),
-    }));
-  }
-
-  create(dto: CreateRoomDto) {
+    if (!roomType || !roomType.isActive) {
+      throw new BadRequestException('Room type not found or inactive');
+    }
     return this.prisma.room.create({
       data: {
         name: dto.name,
         description: dto.description,
-        capacity: dto.capacity,
-        nightlyRate: new Prisma.Decimal(dto.nightlyRate),
-        amenities: dto.amenities,
+        roomTypeId: dto.roomTypeId,
         isActive: dto.isActive ?? true,
       },
+      include: { roomType: true },
     });
   }
 
@@ -72,15 +42,25 @@ export class RoomsService {
     if (!existing) {
       throw new NotFoundException('Room not found');
     }
-    const { nightlyRate, ...rest } = dto;
+
+    if (dto.roomTypeId) {
+      const targetType = await this.prisma.roomType.findUnique({
+        where: { id: dto.roomTypeId },
+      });
+      if (!targetType || !targetType.isActive) {
+        throw new BadRequestException('Room type not found or inactive');
+      }
+    }
+
     return this.prisma.room.update({
       where: { id },
       data: {
-        ...rest,
-        ...(nightlyRate !== undefined
-          ? { nightlyRate: new Prisma.Decimal(nightlyRate) }
-          : {}),
+        name: dto.name,
+        description: dto.description,
+        roomTypeId: dto.roomTypeId,
+        ...(dto.isActive === undefined ? {} : { isActive: dto.isActive }),
       },
+      include: { roomType: true },
     });
   }
 }
