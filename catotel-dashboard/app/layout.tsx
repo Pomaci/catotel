@@ -20,6 +20,9 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="tr">
+      <head>
+        <meta charSet="utf-8" />
+      </head>
       <body
         className={`${dmSans.variable} min-h-screen bg-sand-50 text-cocoa-700 antialiased`}
       >

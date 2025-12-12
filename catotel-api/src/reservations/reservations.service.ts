@@ -292,7 +292,7 @@ export class ReservationsService {
     await this.ensureCatsAvailable(catIds, checkIn, checkOut, id);
     const allowRoomSharing =
       dto.allowRoomSharing === undefined
-        ? existing.allowRoomSharing ?? true
+        ? (existing.allowRoomSharing ?? true)
         : !!dto.allowRoomSharing;
     const requiredSlots = allowRoomSharing ? cats.length : roomType.capacity;
 
@@ -447,7 +447,8 @@ export class ReservationsService {
     // İptalden geri almayı mümkün kıl: iptalden beklemeye veya onaya dönüşe izin ver.
     if (current === ReservationStatus.CANCELLED) {
       return (
-        next === ReservationStatus.PENDING || next === ReservationStatus.CONFIRMED
+        next === ReservationStatus.PENDING ||
+        next === ReservationStatus.CONFIRMED
       );
     }
     if (next === ReservationStatus.CANCELLED) return true;
@@ -484,7 +485,9 @@ export class ReservationsService {
     roomTypeId: string,
     tx?: Prisma.TransactionClient,
   ) {
-    const client = (tx ?? this.prisma) as PrismaService | Prisma.TransactionClient;
+    const client = (tx ?? this.prisma) as
+      | PrismaService
+      | Prisma.TransactionClient;
     return client.room.count({
       where: { roomTypeId, isActive: true },
     });
@@ -522,12 +525,15 @@ export class ReservationsService {
     const totalSlots =
       (activeRoomCount + room.overbookingLimit) * (room.capacity || 1);
     const takenSlots = overlapping.reduce(
-      (sum, res) => sum + (res.reservedSlots > 0 ? res.reservedSlots : room.capacity || 1),
+      (sum, res) =>
+        sum + (res.reservedSlots > 0 ? res.reservedSlots : room.capacity || 1),
       0,
     );
     const remaining = totalSlots - takenSlots;
     if (remaining < requiredSlots) {
-      throw new BadRequestException('Room type not available for selected dates');
+      throw new BadRequestException(
+        'Room type not available for selected dates',
+      );
     }
     return remaining;
   }

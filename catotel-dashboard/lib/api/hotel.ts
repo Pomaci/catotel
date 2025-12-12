@@ -3,7 +3,14 @@ import {
   type ReservationStatus as ReservationStatusValue,
 } from '@/types/enums';
 import { clientRequest } from '@/lib/http-client';
-import type { CareTask, Cat, CustomerProfile, Reservation, RoomType } from '@/types/hotel';
+import type {
+  AddonService,
+  CareTask,
+  Cat,
+  CustomerProfile,
+  Reservation,
+  RoomType,
+} from '@/types/hotel';
 
 export const HotelApi = {
   getProfile: () => clientRequest<CustomerProfile>('/api/customer/me'),
@@ -91,4 +98,5 @@ export const HotelApi = {
       },
       { csrf: true },
     ),
+  listAddonServices: () => clientRequest<AddonService[]>('/api/addon-services'),
 };

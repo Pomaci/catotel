@@ -30,6 +30,7 @@ export type RoomType = {
   isActive: boolean;
   availableUnits?: number;
   totalUnits?: number;
+  availableSlots?: number;
   available?: boolean;
 };
 
@@ -42,13 +43,21 @@ export type Room = {
   isActive: boolean;
 };
 
+export type AddonService = {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | string;
+  isActive: boolean;
+};
+
 export type ReservationCat = {
   cat: Cat;
 };
 
 export type ReservationService = {
   id: string;
-  service: { id: string; name: string; price: number | string };
+  service: AddonService;
   quantity: number;
   unitPrice: number | string;
 };

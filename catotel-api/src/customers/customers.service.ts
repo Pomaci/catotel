@@ -134,9 +134,7 @@ export class CustomersService {
         { breed: { contains: q, mode: 'insensitive' } },
         { customer: { user: { name: { contains: q, mode: 'insensitive' } } } },
         { customer: { user: { email: { contains: q, mode: 'insensitive' } } } },
-        ...(digits
-          ? [{ customer: { phone: { contains: digits } } }]
-          : []),
+        ...(digits ? [{ customer: { phone: { contains: digits } } }] : []),
       ];
     }
     if (params.gender) {
@@ -146,7 +144,8 @@ export class CustomersService {
       where.isNeutered = params.isNeutered;
     }
 
-    const sortDir: Prisma.SortOrder = params.sortDir === 'desc' ? 'desc' : 'asc';
+    const sortDir: Prisma.SortOrder =
+      params.sortDir === 'desc' ? 'desc' : 'asc';
     const orderBy: Prisma.CatOrderByWithRelationInput[] = [];
     switch (params.sortBy) {
       case 'name':
@@ -419,7 +418,9 @@ export class CustomersService {
       this.prisma.reservationCat.deleteMany({
         where: { reservationId: { in: reservationIds } },
       }),
-      this.prisma.reservation.deleteMany({ where: { id: { in: reservationIds } } }),
+      this.prisma.reservation.deleteMany({
+        where: { id: { in: reservationIds } },
+      }),
       this.prisma.cat.deleteMany({ where: { id: { in: catIds } } }),
       this.prisma.customerProfile.delete({ where: { id: customerId } }),
       this.prisma.user.delete({ where: { id: customer.userId } }),

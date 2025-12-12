@@ -6,7 +6,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
-import { PrismaService } from './prisma/prisma.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
@@ -20,7 +19,9 @@ import { RoomsModule } from './rooms/rooms.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { StaffModule } from './staff/staff.module';
 import { MailModule } from './mail/mail.module';
+import { PricingSettingsModule } from './pricing-settings/pricing-settings.module';
 import { RoomTypesModule } from './room-types/room-types.module';
+import { AddonServicesModule } from './addon-services/addon-services.module';
 
 @Module({
   imports: [
@@ -63,6 +64,8 @@ import { RoomTypesModule } from './room-types/room-types.module';
     ReservationsModule,
     StaffModule,
     MailModule,
+    PricingSettingsModule,
+    AddonServicesModule,
   ],
   controllers: [AppController],
   providers: [

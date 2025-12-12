@@ -3,9 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
-import {
-  AdminCustomerListResponseDto,
-} from './dto/admin-customer-list.dto';
+import { AdminCustomerListResponseDto } from './dto/admin-customer-list.dto';
 
 @ApiTags('Admin Customers')
 @ApiBearerAuth('access-token')

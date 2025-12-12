@@ -1,11 +1,27 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole, CatGender } from '@prisma/client';
 import { CustomersService } from './customers.service';
 import { CreateCatDto } from './dto/create-cat.dto';
 import { UpdateCatDto } from './dto/update-cat.dto';
-import { AdminCatDetailDto, AdminCatListResponseDto } from './dto/admin-cat.dto';
+import {
+  AdminCatDetailDto,
+  AdminCatListResponseDto,
+} from './dto/admin-cat.dto';
 import { IsString } from 'class-validator';
 
 class CreateAdminCatDto extends CreateCatDto {
@@ -35,7 +51,8 @@ export class AdminCatsController {
     return this.customers.listAdminCats({
       search,
       gender,
-      isNeutered: typeof neutered === 'string' ? neutered === 'true' : undefined,
+      isNeutered:
+        typeof neutered === 'string' ? neutered === 'true' : undefined,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
       sortBy,

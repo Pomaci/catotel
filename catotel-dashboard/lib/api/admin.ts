@@ -1,7 +1,7 @@
 import { clientRequest } from '@/lib/http-client';
 import type { AdminUser, CreateManagedUserInput } from '@/types/user';
 import type { UserRole } from '@/types/enums';
-import type { Cat, Room, RoomType } from '@/types/hotel';
+import type { AddonService, Cat, Room, RoomType } from '@/types/hotel';
 
 export type AdminCatOwner = {
   id: string;
@@ -43,6 +43,41 @@ export type AdminRoomTypeListResponse = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+export type PricingSettingsDiscountTier = {
+  catCount: number;
+  discountPercent: number;
+};
+
+export type SharedRoomDiscountTier = {
+  remainingCapacity: number;
+  discountPercent: number;
+};
+
+export type LongStayDiscountTier = {
+  minNights: number;
+  discountPercent: number;
+};
+
+export type PricingSettingsResponse = {
+  multiCatDiscountEnabled?: boolean;
+  multiCatDiscounts?: PricingSettingsDiscountTier[];
+  sharedRoomDiscountEnabled?: boolean;
+  sharedRoomDiscountPercent?: number;
+  sharedRoomDiscounts?: SharedRoomDiscountTier[];
+  longStayDiscountEnabled?: boolean;
+  longStayDiscounts?: LongStayDiscountTier[];
+  longStayDiscount?: {
+    enabled: boolean;
+    minNights: number;
+    discountPercent: number;
+  };
+};
+
+export type AdminAddonService = AddonService & {
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreateAdminCatPayload = {
@@ -150,6 +185,17 @@ export const AdminApi = {
       },
       { csrf: true },
     ),
+  getPricingSettings: () =>
+    clientRequest<PricingSettingsResponse | null>('/api/admin/pricing-settings'),
+  updatePricingSettings: (payload: PricingSettingsResponse) =>
+    clientRequest<PricingSettingsResponse>(
+      '/api/admin/pricing-settings',
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      },
+      { csrf: true },
+    ),
   listCustomerCats: (customerId: string) =>
     clientRequest(`/api/admin/customers/${customerId}/cats`),
   createCustomerCat: (customerId: string, payload: Record<string, unknown>) =>
@@ -220,6 +266,47 @@ export const AdminApi = {
       {
         method: 'PATCH',
         body: JSON.stringify(payload),
+      },
+      { csrf: true },
+    ),
+  listAddonServices: () =>
+    clientRequest<AdminAddonService[]>('/api/admin/addon-services'),
+  createAddonService: (payload: {
+    name: string;
+    description?: string | null;
+    price: number;
+    isActive?: boolean;
+  }) =>
+    clientRequest<AdminAddonService>(
+      '/api/admin/addon-services',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { csrf: true },
+    ),
+  updateAddonService: (
+    id: string,
+    payload: {
+      name?: string;
+      description?: string | null;
+      price?: number;
+      isActive?: boolean;
+    },
+  ) =>
+    clientRequest<AdminAddonService>(
+      `/api/admin/addon-services/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      },
+      { csrf: true },
+    ),
+  deleteAddonService: (id: string) =>
+    clientRequest<boolean>(
+      `/api/admin/addon-services/${id}`,
+      {
+        method: 'DELETE',
       },
       { csrf: true },
     ),

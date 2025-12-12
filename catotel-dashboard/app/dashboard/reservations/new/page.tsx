@@ -40,6 +40,8 @@ export default function ReservationCreatePage() {
     checkOut: string;
     specialRequests?: string;
     customerId?: string | null;
+    allowRoomSharing?: boolean;
+    addons?: { serviceId: string; quantity: number }[];
   }) {
     setError(null);
     setSuccess(null);
@@ -54,6 +56,14 @@ export default function ReservationCreatePage() {
       checkOut: values.checkOut,
       specialRequests: values.specialRequests,
       customerId: values.customerId ?? undefined,
+      allowRoomSharing: values.allowRoomSharing ?? true,
+      addons:
+        values.addons && values.addons.length
+          ? values.addons.map((addon) => ({
+              serviceId: addon.serviceId,
+              quantity: Math.max(1, addon.quantity),
+            }))
+          : undefined,
     });
   }
 

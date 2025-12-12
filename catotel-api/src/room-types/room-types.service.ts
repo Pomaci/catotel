@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, ReservationStatus } from '@prisma/client';
 import { startOfDay } from 'date-fns';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -66,16 +70,20 @@ export class RoomTypesService {
         checkIn: { lt: end },
         checkOut: { gt: start },
       },
-      select: { roomTypeId: true, reservedSlots: true },
+      select: {
+        roomTypeId: true,
+        reservedSlots: true,
+        allowRoomSharing: true,
+        _count: { select: { cats: true } },
+      },
     });
     const overlapMap = new Map<string, number>();
-    overlaps.forEach((o) => {
-      const prev = overlapMap.get(o.roomTypeId) ?? 0;
-      const capacity = roomTypeCapacityMap.get(o.roomTypeId) ?? 1;
+    overlaps.forEach((overlap) => {
+      const capacity = roomTypeCapacityMap.get(overlap.roomTypeId) ?? 1;
+      const prev = overlapMap.get(overlap.roomTypeId) ?? 0;
       overlapMap.set(
-        o.roomTypeId,
-        prev +
-          (o.reservedSlots && o.reservedSlots > 0 ? o.reservedSlots : capacity),
+        overlap.roomTypeId,
+        prev + this.resolveReservationSlots(overlap, capacity),
       );
     });
 
@@ -131,5 +139,27 @@ export class RoomTypesService {
           : {}),
       },
     });
+  }
+
+  private resolveReservationSlots(
+    reservation: {
+      reservedSlots: number | null;
+      allowRoomSharing: boolean | null;
+      _count?: { cats: number };
+    },
+    capacity: number,
+  ) {
+    const normalizedCapacity = Math.max(1, capacity);
+    if (reservation.reservedSlots && reservation.reservedSlots > 0) {
+      return Math.min(reservation.reservedSlots, normalizedCapacity);
+    }
+    if (reservation.allowRoomSharing === false) {
+      return normalizedCapacity;
+    }
+    const catCount = reservation._count?.cats ?? 0;
+    if (catCount > 0) {
+      return Math.min(catCount, normalizedCapacity);
+    }
+    return normalizedCapacity;
   }
 }

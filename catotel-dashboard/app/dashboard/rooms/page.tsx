@@ -8,7 +8,7 @@ import { AdminApi, type AdminRoomListResponse, type AdminRoomTypeListResponse } 
 import type { Room as HotelRoom, RoomType as RoomTypeModel } from "@/types/hotel";
 
 type RoomStatus = "ACTIVE" | "INACTIVE";
-type SortKey = "name" | "capacity" | "status" | "rate" | "units";
+type SortKey = "name" | "capacity" | "status" | "rate" | "units" | "occupancy";
 
 type RoomTypeFormValues = {
   name: string;
@@ -46,6 +46,9 @@ export default function RoomsPage() {
   const [roomModal, setRoomModal] = useState<{ mode: "create" | "edit"; room?: HotelRoom | null } | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
   const queryClient = useQueryClient();
+  const [viewStart, setViewStart] = useState(() => new Date().toISOString().slice(0, 10));
+  const [viewRangeDays, setViewRangeDays] = useState(7);
+  const viewEnd = useMemo(() => calculateRangeEnd(viewStart, viewRangeDays), [viewStart, viewRangeDays]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -66,8 +69,14 @@ export default function RoomsPage() {
   }, [toast]);
 
   const roomTypeQuery = useQuery<RoomTypeModel[] | AdminRoomTypeListResponse>({
-    queryKey: ["admin-room-types"],
-    queryFn: () => AdminApi.listRoomTypes({ includeInactive: true }),
+    queryKey: ["admin-room-types", viewStart, viewEnd],
+    enabled: Boolean(viewStart && viewEnd),
+    queryFn: () =>
+      AdminApi.listRoomTypes({
+        includeInactive: true,
+        checkIn: viewStart,
+        checkOut: viewEnd,
+      }),
     staleTime: 30_000,
   });
 
@@ -234,6 +243,44 @@ export default function RoomsPage() {
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--admin-surface-alt)] px-4 py-3 text-xs font-semibold text-[var(--admin-text-strong)]">
+          <label className="flex items-center gap-2">
+            <span className="text-[var(--admin-muted)] uppercase tracking-[0.2em]">Başlangıç</span>
+            <input
+              type="date"
+              value={viewStart}
+              max="9999-12-31"
+              onChange={(event) => {
+                if (!event.target.value) return;
+                setViewStart(event.target.value);
+              }}
+              className="rounded-full border bg-[var(--admin-surface)] px-3 py-1 text-sm font-semibold text-[var(--admin-text-strong)] outline-none transition hover:border-peach-200 focus:border-peach-300 focus:ring-2 focus:ring-peach-100 admin-border"
+            />
+          </label>
+          <div className="inline-flex items-center gap-1 rounded-full border bg-[var(--admin-surface)] px-2 py-1 text-[var(--admin-muted)] admin-border">
+            <span className="px-2 text-[10px] font-semibold uppercase tracking-[0.3em]">Gün sayısı</span>
+            {[7, 14, 30].map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setViewRangeDays(option)}
+                className={clsx(
+                  "rounded-full px-2 py-1 text-sm transition",
+                  option === viewRangeDays ? "bg-peach-400 text-white shadow-glow" : "text-[var(--admin-muted)] hover:text-peach-500",
+                )}
+              >
+                {option}g
+              </button>
+            ))}
+          </div>
+          {viewStart && viewEnd && (
+            <span className="rounded-full bg-[var(--admin-surface)] px-3 py-1 text-[var(--admin-muted)] admin-border">
+              Görüntülenen dönem: <span className="font-semibold text-[var(--admin-text-strong)]">{viewStart}</span> →{" "}
+              <span className="font-semibold text-[var(--admin-text-strong)]">{viewEnd}</span>
+            </span>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
@@ -242,6 +289,7 @@ export default function RoomsPage() {
                 <SortableHeader label="Kapasite" sortKey="capacity" currentSort={sort} onSort={(key) => setSort(toggleSort(sort, key))} />
                 <SortableHeader label="Gece Ucreti" sortKey="rate" currentSort={sort} onSort={(key) => setSort(toggleSort(sort, key))} />
                 <SortableHeader label="Oda Adedi" sortKey="units" currentSort={sort} onSort={(key) => setSort(toggleSort(sort, key))} />
+                <SortableHeader label="Doluluk" sortKey="occupancy" currentSort={sort} onSort={(key) => setSort(toggleSort(sort, key))} />
                 <SortableHeader label="Durum" sortKey="status" currentSort={sort} onSort={(key) => setSort(toggleSort(sort, key))} />
                 <th className="py-3 pr-3 text-right font-semibold">Islem</th>
               </tr>
@@ -277,6 +325,7 @@ export default function RoomsPage() {
 
               {!roomTypeQuery.isLoading &&
                 paginatedRoomTypes.map((room) => {
+                const occupancy = calculateRoomSlotStats(room);
                 return (
                     <tr key={room.id} className="group border-b last:border-none transition hover:bg-[var(--admin-surface-alt)] admin-border">
                       <td className="py-4 pr-3">
@@ -309,6 +358,25 @@ export default function RoomsPage() {
                         <div className="inline-flex items-center gap-2 rounded-full bg-[var(--admin-surface-alt)] px-3 py-1 font-semibold admin-border">
                           <PawPrint className="h-4 w-4 text-peach-400" aria-hidden />
                           {room.totalUnits ?? 0} oda{room.overbookingLimit ? ` +${room.overbookingLimit} ovb` : ""}
+                        </div>
+                      </td>
+                      <td className="py-4 pr-3">
+                        <div className="space-y-2 rounded-2xl border bg-[var(--admin-surface-alt)] px-3 py-2 text-xs font-semibold text-[var(--admin-text-strong)] admin-border">
+                          <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-[var(--admin-muted)]">
+                            <span>
+                              {occupancy.usedSlots} / {occupancy.totalSlots} slot
+                            </span>
+                            <span>{occupancy.occupancyPercent}%</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-[var(--admin-surface)]">
+                            <span
+                              className="block h-2 rounded-full bg-gradient-to-r from-peach-300 to-peach-500 transition-[width]"
+                              style={{ width: `${occupancy.occupancyPercent}%` }}
+                            />
+                          </div>
+                          <p className="text-[11px] font-semibold text-[var(--admin-muted)]">
+                            Boş slot: {occupancy.availableSlots} • Uygun oda: {occupancy.availableUnits}
+                          </p>
                         </div>
                       </td>
                       <td className="py-4 pr-3">
@@ -951,6 +1019,11 @@ function sortRoomTypes(rooms: RoomTypeModel[], sort: { key: SortKey; direction: 
     if (sort.key === "status") return (statusOrder(a.isActive ? "ACTIVE" : "INACTIVE") - statusOrder(b.isActive ? "ACTIVE" : "INACTIVE")) * direction;
     if (sort.key === "rate") return (Number(a.nightlyRate) - Number(b.nightlyRate)) * direction;
     if (sort.key === "units") return ((a.totalUnits ?? 0) - (b.totalUnits ?? 0)) * direction;
+    if (sort.key === "occupancy") {
+      const aStats = calculateRoomSlotStats(a);
+      const bStats = calculateRoomSlotStats(b);
+      return (aStats.occupancyPercent - bStats.occupancyPercent) * direction;
+    }
     return a.name.localeCompare(b.name, "tr") * direction;
   });
   return copy;
@@ -971,6 +1044,35 @@ function formatPrice(value: number | string) {
   const num = typeof value === "string" ? Number(value) : value;
   if (Number.isNaN(num)) return "--";
   return num.toLocaleString("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 });
+}
+
+function calculateRoomSlotStats(room: RoomTypeModel) {
+  const capacity = Math.max(1, room.capacity || 1);
+  const totalUnits = Math.max(0, room.totalUnits ?? 0);
+  const overbooking = Math.max(0, room.overbookingLimit ?? 0);
+  const totalSlots = (totalUnits + overbooking) * capacity;
+  const availableSlotsRaw = room.availableSlots ?? totalSlots;
+  const availableSlots = Math.min(totalSlots, Math.max(0, availableSlotsRaw));
+  const usedSlots = Math.max(0, totalSlots - availableSlots);
+  const derivedAvailableUnits = room.availableUnits ?? Math.floor(availableSlots / capacity);
+  const availableUnits = Math.max(0, derivedAvailableUnits);
+  const occupancyPercent = totalSlots > 0 ? Math.round((usedSlots / totalSlots) * 100) : 0;
+  return {
+    totalSlots,
+    availableSlots,
+    usedSlots,
+    availableUnits,
+    occupancyPercent,
+  };
+}
+
+function calculateRangeEnd(start: string, days: number) {
+  if (!start) return "";
+  const base = new Date(`${start}T00:00:00`);
+  if (Number.isNaN(base.getTime())) return "";
+  const next = new Date(base);
+  next.setDate(next.getDate() + Math.max(1, days));
+  return next.toISOString().slice(0, 10);
 }
 
 

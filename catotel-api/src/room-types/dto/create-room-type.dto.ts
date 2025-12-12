@@ -34,7 +34,8 @@ export class CreateRoomTypeDto {
   nightlyRate!: number;
 
   @ApiPropertyOptional({
-    description: 'Optional overbooking allowance (number of extra rooms allowed to be sold)',
+    description:
+      'Optional overbooking allowance (number of extra rooms allowed to be sold)',
     default: 0,
   })
   @IsOptional()

@@ -22,12 +22,27 @@ async function parseBody(response: Response) {
   }
 }
 
+type ClientRequestInit = RequestInit & {
+  query?:
+    | Record<
+        string,
+        | string
+        | number
+        | boolean
+        | null
+        | undefined
+        | Array<string | number | boolean | null | undefined>
+      >
+    | URLSearchParams;
+};
+
 export async function clientRequest<T>(
   path: string,
-  init: RequestInit = {},
+  init: ClientRequestInit = {},
   options?: { csrf?: boolean; retry?: boolean },
 ) {
-  const headers = new Headers(init.headers || {});
+  const { query, ...restInit } = init;
+  const headers = new Headers(restInit.headers || {});
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -39,8 +54,8 @@ export async function clientRequest<T>(
     headers.set('X-CSRF-Token', csrfToken);
   }
 
-  const response = await fetch(path, {
-    ...init,
+  const response = await fetch(applyQuery(path, query), {
+    ...restInit,
     headers,
     credentials: 'include',
   });
@@ -62,7 +77,11 @@ export async function clientRequest<T>(
       const csrfToken = readClientCsrfToken();
       if (csrfToken && options?.retry !== false) {
         headers.set('X-CSRF-Token', csrfToken);
-        return clientRequest<T>(path, { ...init, headers }, { ...options, retry: false });
+        return clientRequest<T>(
+          path,
+          { ...(init as ClientRequestInit), headers },
+          { ...options, retry: false },
+        );
       }
     }
 
@@ -101,4 +120,45 @@ async function tryRefresh() {
     console.error('Refresh attempt failed', err);
     return false;
   }
+}
+
+function applyQuery(
+  path: string,
+  query?:
+    | Record<
+        string,
+        | string
+        | number
+        | boolean
+        | null
+        | undefined
+        | Array<string | number | boolean | null | undefined>
+      >
+    | URLSearchParams,
+) {
+  if (!query) {
+    return path;
+  }
+  const params =
+    query instanceof URLSearchParams ? new URLSearchParams(query) : new URLSearchParams();
+
+  if (!(query instanceof URLSearchParams)) {
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach((entry) => {
+          if (entry === undefined || entry === null) return;
+          params.append(key, String(entry));
+        });
+        return;
+      }
+      params.append(key, String(value));
+    });
+  }
+
+  const queryString = params.toString();
+  if (!queryString) {
+    return path;
+  }
+  return path.includes('?') ? `${path}&${queryString}` : `${path}?${queryString}`;
 }

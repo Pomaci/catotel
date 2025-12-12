@@ -290,3 +290,17 @@ model PasswordResetToken {
   @@index([userId])
   @@index([expiresAt])
 }
+
+model PricingSettings {
+  id                        String   @id @default(cuid())
+  multiCatDiscountEnabled   Boolean  @default(false)
+  multiCatDiscounts         Json?
+  sharedRoomDiscountEnabled Boolean  @default(false)
+  sharedRoomDiscountPercent Decimal? @db.Decimal(5, 2)
+  sharedRoomDiscounts       Json?
+  longStayDiscountEnabled   Boolean  @default(false)
+  longStayDiscounts         Json?
+  longStayDiscount          Json?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
