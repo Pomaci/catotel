@@ -26,6 +26,8 @@ export const envSchema = z
 
     CORS_ORIGINS: z
       .string()
+      .trim()
+      .min(1, 'CORS_ORIGINS must include at least one origin')
       .default('http://localhost:3000,http://localhost:3001'),
 
     ACCESS_TOKEN_SECRET: z
@@ -62,6 +64,16 @@ export const envSchema = z
       .int()
       .positive()
       .default(30),
+    PASSWORD_RESET_EMAIL_WINDOW_MINUTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(15),
+    PASSWORD_RESET_EMAIL_MAX_PER_WINDOW: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(3),
   })
   .superRefine((env, ctx) => {
     if (!env.MAIL_ENABLED) {

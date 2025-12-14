@@ -1,17 +1,24 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserService } from 'src/user/user.service';
 import { MailService } from 'src/mail/mail.service';
 import { EnvVars } from 'src/config/config.schema';
 import { randomUUID, createHash } from 'crypto';
-import { addMinutes } from 'date-fns';
+import { addMinutes, subMinutes } from 'date-fns';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class PasswordResetService {
   private readonly resetUrl: string;
   private readonly tokenTtlMinutes: number;
+  private readonly resetRequestLimit: number;
+  private readonly resetRequestWindowMinutes: number;
   private readonly passwordSaltRounds = 10;
 
   constructor(
@@ -26,6 +33,14 @@ export class PasswordResetService {
     this.tokenTtlMinutes =
       this.config.get('PASSWORD_RESET_TOKEN_TTL_MINUTES', { infer: true }) ??
       30;
+    this.resetRequestLimit =
+      this.config.get('PASSWORD_RESET_EMAIL_MAX_PER_WINDOW', {
+        infer: true,
+      }) ?? 3;
+    this.resetRequestWindowMinutes =
+      this.config.get('PASSWORD_RESET_EMAIL_WINDOW_MINUTES', {
+        infer: true,
+      }) ?? 15;
   }
 
   async requestPasswordReset(email: string) {
@@ -34,13 +49,18 @@ export class PasswordResetService {
       return;
     }
 
-    await this.prisma.passwordResetToken.deleteMany({
-      where: { userId: user.id },
+    await this.ensureResetRequestAllowed(user.id);
+
+    const now = new Date();
+
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null, expiresAt: { gt: now } },
+      data: { expiresAt: now },
     });
 
     const token = randomUUID();
     const tokenHash = this.digestToken(token);
-    const expiresAt = addMinutes(new Date(), this.tokenTtlMinutes);
+    const expiresAt = addMinutes(now, this.tokenTtlMinutes);
 
     await this.prisma.passwordResetToken.create({
       data: {
@@ -101,6 +121,23 @@ export class PasswordResetService {
         },
       }),
     ]);
+  }
+
+  private async ensureResetRequestAllowed(userId: string) {
+    const windowStart = subMinutes(new Date(), this.resetRequestWindowMinutes);
+    const recentRequests = await this.prisma.passwordResetToken.count({
+      where: {
+        userId,
+        createdAt: { gt: windowStart },
+      },
+    });
+
+    if (recentRequests >= this.resetRequestLimit) {
+      throw new HttpException(
+        'Too many password reset requests. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 
   private digestToken(token: string) {

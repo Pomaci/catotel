@@ -1,11 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import { jwtDecode } from 'jwt-decode';
 
 const ACCESS_COOKIE = 'catotel_access';
 const CSRF_COOKIE = 'catotel_csrf';
 const PROTECTED_PATHS = ['/dashboard'];
-const encoder = new TextEncoder();
+
+type JwtPayload = {
+  exp?: number;
+};
 
 function extractSetCookies(res: Response): string[] {
   const header = res.headers.get('set-cookie');
@@ -16,18 +19,12 @@ function extractSetCookies(res: Response): string[] {
   return header.split(/,(?=[^;]+=[^;]+)/).map((c) => c.trim()).filter(Boolean);
 }
 
-async function verifyJwt(token: string) {
-  const secret = process.env.ACCESS_TOKEN_SECRET;
-  if (!secret) return false;
+function isAccessTokenFresh(token: string) {
+  // Only read the exp claim here; signature verification is handled by the API proxy.
   try {
-    const { payload } = await jwtVerify(token, encoder.encode(secret), {
-      issuer: process.env.JWT_ISSUER ?? 'catotel-api',
-      audience: process.env.JWT_AUDIENCE ?? 'catotel-client',
-    });
-    if (payload?.exp && payload.exp * 1000 <= Date.now()) {
-      return false;
-    }
-    return true;
+    const { exp } = jwtDecode<JwtPayload>(token);
+    if (!exp) return false;
+    return exp * 1000 > Date.now();
   } catch {
     return false;
   }
@@ -57,10 +54,7 @@ async function hasValidAccessToken(request: NextRequest) {
   if (!token) {
     return false;
   }
-  if (await verifyJwt(token)) {
-    return true;
-  }
-  return false;
+  return isAccessTokenFresh(token);
 }
 
 function isProtectedPath(pathname: string) {

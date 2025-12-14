@@ -28,8 +28,7 @@ npm run dev
 ```
 
 The dev server binds to `http://localhost:3100` and expects the backend at `http://localhost:3000`.
-
-If `NEXT_PUBLIC_API_BASE_URL` is omitted the proxy falls back to `http://localhost:3000/api/v1`.
+Override the proxy target with the server-only `API_BASE_URL` (defaults to `http://localhost:3000/api/v1`). Only set `NEXT_PUBLIC_API_BASE_URL` when you intentionally call the backend directly from the browser.
 
 ```bash
 # E2E (requires the backend + dashboard to be running)

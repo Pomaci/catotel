@@ -9,6 +9,7 @@ import { swaggerConfig, swaggerPath } from './config/swagger.config';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -28,30 +29,28 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalFilters(new GlobalHttpExceptionFilter());
 
   const configService = app.get(ConfigService<EnvVars>);
-  const rawCorsOrigins = configService.getOrThrow<string | string[]>(
-    'CORS_ORIGINS',
-    {
-      infer: true,
-    },
-  );
+  const rawCorsOrigins = configService.getOrThrow<string>('CORS_ORIGINS', {
+    infer: true,
+  });
   const corsOrigins = parseOrigins(rawCorsOrigins);
 
   const corsOptions: CorsOptions = {
     origin: (origin, callback) => {
-      if (!origin || corsOrigins.length === 0 || corsOrigins.includes(origin)) {
+      if (!origin || corsOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
       callback(new Error(`CORS blocked origin: ${origin ?? 'unknown'}`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    // CSRF header intentionally omitted until a server-side check is implemented.
     allowedHeaders: [
       'Content-Type',
       'Authorization',
       'X-Request-Id',
-      'X-CSRF-Token',
     ],
     credentials: true,
   };
@@ -82,13 +81,15 @@ async function bootstrap() {
     }),
   );
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig, {
-    deepScanRoutes: true,
-  });
-  SwaggerModule.setup(swaggerPath, app, document, {
-    jsonDocumentUrl: `${swaggerPath}/schema.json`,
-    customSiteTitle: 'Catotel API Docs',
-  });
+  if (!isProd) {
+    const document = SwaggerModule.createDocument(app, swaggerConfig, {
+      deepScanRoutes: true,
+    });
+    SwaggerModule.setup(swaggerPath, app, document, {
+      jsonDocumentUrl: `${swaggerPath}/schema.json`,
+      customSiteTitle: 'Catotel API Docs',
+    });
+  }
 
   const rawPort: unknown = configService.get('PORT', { infer: true });
   const port =
@@ -97,16 +98,43 @@ async function bootstrap() {
 }
 
 function parseOrigins(raw?: string | string[] | null): string[] {
-  if (!raw) {
-    return [];
-  }
+  const rawList: string[] = [];
+
   if (Array.isArray(raw)) {
-    return raw.filter((origin): origin is string => typeof origin === 'string');
+    rawList.push(
+      ...raw.filter((value): value is string => typeof value === 'string'),
+    );
+  } else if (typeof raw === 'string') {
+    rawList.push(...raw.split(','));
   }
-  return raw
-    .split(',')
+
+  const normalized = rawList
     .map((origin) => origin.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(normalizeOrigin);
+
+  if (normalized.length === 0) {
+    throw new Error(
+      'CORS_ORIGINS must include at least one valid origin (comma-separated)',
+    );
+  }
+
+  return normalized;
+}
+
+function normalizeOrigin(origin: string): string {
+  try {
+    const url = new URL(origin);
+
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('only http and https origins are supported');
+    }
+
+    return url.origin;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Invalid CORS origin "${origin}": ${reason}`);
+  }
 }
 
 bootstrap().catch((error) => {

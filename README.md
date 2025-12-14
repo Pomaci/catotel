@@ -26,7 +26,8 @@ npm run start:dev
 ```bash
 cd catotel-dashboard
 npm install
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api/v1 npm run dev
+API_BASE_URL=http://localhost:3000/api/v1 npm run dev
+# Only set NEXT_PUBLIC_API_BASE_URL if the browser should call the backend directly.
 ```
 
 ### Mobile (Expo)

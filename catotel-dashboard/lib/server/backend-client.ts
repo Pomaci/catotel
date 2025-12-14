@@ -6,8 +6,7 @@ import {
 } from '@catotel/api-client';
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
-  'http://localhost:3000/api/v1';
+  process.env.API_BASE_URL?.trim() || 'http://localhost:3000/api/v1';
 
 const baseConfig: OpenAPIConfig = {
   ...GeneratedOpenAPI,

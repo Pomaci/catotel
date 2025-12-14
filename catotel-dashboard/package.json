@@ -9,7 +9,7 @@
     "lint": "cross-env ESLINT_USE_FLAT_CONFIG=true next lint",
     "test:e2e:web": "playwright test",
     "test:e2e:web:ci": "start-server-and-test \"npm run start\" http://localhost:3000 \"E2E_BASE_URL=http://localhost:3000 npm run test:e2e:web\"",
-    "test:e2e:web:ci:full": "start-server-and-test \"npm run start:prod --prefix ../catotel-api\" http://localhost:3333/health \"NEXT_PUBLIC_API_BASE_URL=http://localhost:3333/api/v1 npm run test:e2e:web:ci\""
+    "test:e2e:web:ci:full": "start-server-and-test \"npm run start:prod --prefix ../catotel-api\" http://localhost:3333/health \"API_BASE_URL=http://localhost:3333/api/v1 npm run test:e2e:web:ci\""
   },
   "dependencies": {
     "@catotel/api-client": "file:../catotel-clients/api-client",

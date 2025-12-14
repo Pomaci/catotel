@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -14,6 +14,7 @@ import { EnvVars } from './config/config.schema';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './auth/jwt/jwt.guard';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { CustomersModule } from './customers/customers.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { ReservationsModule } from './reservations/reservations.module';
@@ -84,4 +85,8 @@ import { AddonServicesModule } from './addon-services/addon-services.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

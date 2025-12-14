@@ -1,13 +1,15 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { addMinutes } from 'date-fns';
+import { addMinutes, subMinutes } from 'date-fns';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -23,6 +25,8 @@ export class UserService {
   private readonly logger = new Logger(UserService.name);
   private readonly resetUrl: string;
   private readonly resetTtlMinutes: number;
+  private readonly resetRequestLimit: number;
+  private readonly resetRequestWindowMinutes: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -35,6 +39,14 @@ export class UserService {
     this.resetTtlMinutes =
       this.config.get('PASSWORD_RESET_TOKEN_TTL_MINUTES', { infer: true }) ??
       30;
+    this.resetRequestLimit =
+      this.config.get('PASSWORD_RESET_EMAIL_MAX_PER_WINDOW', {
+        infer: true,
+      }) ?? 3;
+    this.resetRequestWindowMinutes =
+      this.config.get('PASSWORD_RESET_EMAIL_WINDOW_MINUTES', {
+        infer: true,
+      }) ?? 15;
   }
 
   async register({ email, password, name }: RegisterUserDto) {
@@ -277,6 +289,23 @@ export class UserService {
     return `+${digits}`;
   }
 
+  private async ensurePasswordEmailAllowed(userId: string) {
+    const windowStart = subMinutes(new Date(), this.resetRequestWindowMinutes);
+    const recentRequests = await this.prisma.passwordResetToken.count({
+      where: {
+        userId,
+        createdAt: { gt: windowStart },
+      },
+    });
+
+    if (recentRequests >= this.resetRequestLimit) {
+      throw new HttpException(
+        'Too many password reset requests. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
   private digestToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
   }
@@ -286,12 +315,18 @@ export class UserService {
     email: string,
     name?: string,
   ) {
+    await this.ensurePasswordEmailAllowed(userId);
+
+    const now = new Date();
     const token = randomUUID();
     const tokenHash = this.digestToken(token);
-    const expiresAt = addMinutes(new Date(), this.resetTtlMinutes);
+    const expiresAt = addMinutes(now, this.resetTtlMinutes);
 
     await this.prisma.$transaction([
-      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId, usedAt: null, expiresAt: { gt: now } },
+        data: { expiresAt: now },
+      }),
       this.prisma.passwordResetToken.create({
         data: { userId, tokenHash, expiresAt },
       }),

@@ -28,7 +28,7 @@ The server boots with a global `/api` prefix and URI versioning (`/api/v1`). Adj
 | `PORT` | HTTP port | `3000` |
 | `NODE_ENV` | `development`, `test`, or `production` | `development` |
 | `DATABASE_URL` | PostgreSQL connection string (Prisma format) | `-` |
-| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins | `http://localhost:3000,http://localhost:3001` |
+| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins (startup fails if empty/invalid) | `http://localhost:3000,http://localhost:3001` |
 | `ACCESS_TOKEN_SECRET` | HMAC secret for access tokens | `-` |
 | `REFRESH_TOKEN_SECRET` | HMAC secret for refresh tokens | `-` |
 | `ACCESS_TOKEN_TTL` | Access token lifetime (jsonwebtoken format) | `15m` |
@@ -47,6 +47,8 @@ The server boots with a global `/api` prefix and URI versioning (`/api/v1`). Adj
 | `MAIL_FROM` | Display name + email shown in the From header | `"Catotel <noreply@catotel.dev>"` |
 | `PASSWORD_RESET_URL` | Absolute URL of the frontend reset form | `http://localhost:3100/auth/reset-password` |
 | `PASSWORD_RESET_TOKEN_TTL_MINUTES` | Minutes before a reset token expires | `30` |
+| `PASSWORD_RESET_EMAIL_WINDOW_MINUTES` | Throttle window (minutes) for password reset/setup emails per address | `15` |
+| `PASSWORD_RESET_EMAIL_MAX_PER_WINDOW` | Max reset/setup emails allowed per address in the throttle window | `3` |
 
 All variables are validated during bootstrap; the application refuses to start if any are missing or malformed.
 
