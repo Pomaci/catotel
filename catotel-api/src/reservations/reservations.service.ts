@@ -71,7 +71,14 @@ export class ReservationsService {
     if (checkIn >= checkOut) {
       throw new BadRequestException('Check-out must be after check-in');
     }
-    if (checkIn < startOfDay(new Date())) {
+    const isCheckInDateFromPayload = 'checkIn' in dto;
+    const isStatusCheckIn =
+      'status' in dto && (dto as any).status === ReservationStatus.CHECKED_IN;
+    if (
+      isCheckInDateFromPayload &&
+      !isStatusCheckIn &&
+      checkIn < startOfDay(new Date())
+    ) {
       throw new BadRequestException('Check-in cannot be in the past');
     }
 
@@ -262,7 +269,17 @@ export class ReservationsService {
     if (checkIn >= checkOut) {
       throw new BadRequestException('Check-out must be after check-in');
     }
-    if (checkIn < startOfDay(new Date())) {
+    const isCheckInDateFromPayload = 'checkIn' in dto;
+    const isStatusCheckIn = dto.status === ReservationStatus.CHECKED_IN;
+    const isRevertingFromCheckIn =
+      existing.status === ReservationStatus.CHECKED_IN &&
+      dto.status === ReservationStatus.CONFIRMED;
+    if (
+      isCheckInDateFromPayload &&
+      !isStatusCheckIn &&
+      !isRevertingFromCheckIn &&
+      checkIn < startOfDay(new Date())
+    ) {
       throw new BadRequestException('Check-in cannot be in the past');
     }
 

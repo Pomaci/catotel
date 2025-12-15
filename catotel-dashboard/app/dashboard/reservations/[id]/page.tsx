@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
@@ -29,7 +29,13 @@ import {
   XCircle,
 } from "lucide-react";
 import { HotelApi } from "@/lib/api/hotel";
-import type { CheckInForm, CheckOutForm, Reservation } from "@/types/hotel";
+import { useReservations } from "@/lib/hooks/useHotelData";
+import type {
+  CheckInForm,
+  CheckOutForm,
+  Reservation,
+  Room,
+} from "@/types/hotel";
 import { ReservationStatus } from "@/types/enums";
 
 export default function ReservationDetailPage() {
@@ -46,6 +52,20 @@ export default function ReservationDetailPage() {
     enabled: Boolean(reservationId),
     queryFn: () => HotelApi.getReservation(reservationId!),
   });
+  const {
+    data: rooms,
+    isLoading: roomsLoading,
+    error: roomsError,
+  } = useQuery({
+    queryKey: ["rooms"],
+    enabled: Boolean(reservationId),
+    queryFn: () => HotelApi.listRoomUnits(),
+  });
+  const {
+    data: checkedInReservations,
+    isLoading: occupiedRoomsLoading,
+    error: occupiedRoomsError,
+  } = useReservations(ReservationStatus.CHECKED_IN, Boolean(reservationId));
 
   const updateMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -69,7 +89,36 @@ export default function ReservationDetailPage() {
     () => buildTimeline(reservation?.status),
     [reservation?.status]
   );
-
+  const roomTypeRooms = useMemo(
+    () =>
+      rooms && reservation
+        ? rooms.filter((room) => room.roomType.id === reservation.roomType.id)
+        : [],
+    [rooms, reservation?.roomType.id]
+  );
+  const roomOccupancyInfo = useMemo<RoomOccupancyInfo>(() => {
+    if (!reservation?.roomType?.id) return {};
+    const capacity = Math.max(1, reservation.roomType.capacity ?? 1);
+    const targetRoomTypeId = reservation.roomType.id;
+    const info: RoomOccupancyInfo = {};
+    (checkedInReservations ?? []).forEach((res) => {
+      if (res.id === reservation.id) return;
+      if (res.roomType?.id !== targetRoomTypeId) return;
+      const roomId = res.checkInForm?.roomId?.trim();
+      if (!roomId) return;
+      const slotsUsed = resolveReservationSlotsForRoom(res, capacity);
+      const current = info[roomId]?.occupied ?? 0;
+      info[roomId] = {
+        occupied: Math.min(capacity, current + slotsUsed),
+        capacity,
+      };
+    });
+    return info;
+  }, [checkedInReservations, reservation?.id, reservation?.roomType?.capacity, reservation?.roomType?.id]);
+  const occupiedRoomIds = useMemo(
+    () => Object.keys(roomOccupancyInfo),
+    [roomOccupancyInfo],
+  );
   if (isLoading) {
     return (
       <div className="admin-surface p-6">
@@ -137,7 +186,11 @@ export default function ReservationDetailPage() {
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
           <InfoCard reservation={reservation} />
-          <StayCard reservation={reservation} nights={nights} />
+          <StayCard
+            reservation={reservation}
+            nights={nights}
+            rooms={roomTypeRooms}
+          />
           <ExtrasCard reservation={reservation} totalExtras={totalExtras} />
           <NotesCard reservation={reservation} />
         </div>
@@ -162,6 +215,15 @@ export default function ReservationDetailPage() {
         onSubmit={handleCheckInSubmit}
         reservation={reservation}
         saving={updateMutation.isPending}
+        rooms={roomTypeRooms}
+        roomsLoading={roomsLoading}
+        roomsError={roomsError instanceof Error ? roomsError.message : null}
+        roomOccupancyInfo={roomOccupancyInfo}
+        occupiedRoomIds={occupiedRoomIds}
+        occupiedRoomsLoading={occupiedRoomsLoading}
+        occupiedRoomsError={
+          occupiedRoomsError instanceof Error ? occupiedRoomsError.message : null
+        }
       />
       <CheckOutFormModal
         open={showCheckOutForm}
@@ -328,10 +390,16 @@ function InfoCard({ reservation }: { reservation: Reservation }) {
 function StayCard({
   reservation,
   nights,
+  rooms,
 }: {
   reservation: Reservation;
   nights: number;
+  rooms?: Room[];
 }) {
+  const assignedRoomName =
+    reservation.checkInForm?.roomId && rooms?.length
+      ? rooms.find((room) => room.id === reservation.checkInForm?.roomId)?.name
+      : null;
   return (
     <CardShell
       title="Konaklama"
@@ -356,6 +424,11 @@ function StayCard({
             <p className="text-xs text-[var(--admin-muted)]">
               {reservation.roomType.description ?? "Oda detayı belirtilmemiş."}
             </p>
+            {reservation.checkInForm?.roomId && (
+              <p className="mt-1 text-xs font-semibold text-[var(--admin-text-strong)]">
+                Atanan oda: {assignedRoomName ?? reservation.checkInForm.roomId}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-2xl bg-[var(--admin-surface-alt)] px-3 py-3">
@@ -811,19 +884,36 @@ type MedicationField = {
   notes?: string;
 };
 
+type RoomOccupancyInfo = Record<string, { occupied: number; capacity: number }>;
+
 function CheckInFormModal({
   open,
   onClose,
   onSubmit,
   reservation,
   saving,
+  rooms,
+  roomsLoading,
+  roomsError,
+  roomOccupancyInfo,
+  occupiedRoomIds,
+  occupiedRoomsLoading,
+  occupiedRoomsError,
 }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (form: CheckInForm) => Promise<void>;
   reservation: Reservation;
   saving: boolean;
+  rooms?: Room[];
+  roomsLoading: boolean;
+  roomsError: string | null;
+  roomOccupancyInfo?: RoomOccupancyInfo;
+  occupiedRoomIds?: string[];
+  occupiedRoomsLoading?: boolean;
+  occupiedRoomsError?: string | null;
 }) {
+  const [roomId, setRoomId] = useState("");
   const [arrivalTime, setArrivalTime] = useState("");
   const [deliveredItems, setDeliveredItems] = useState<ItemField[]>([]);
   const [foodPlan, setFoodPlan] = useState({
@@ -840,6 +930,33 @@ function CheckInFormModal({
   const [handledBy, setHandledBy] = useState("");
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const occupancyInfo = roomOccupancyInfo ?? {};
+  const defaultRoomCapacity = Math.max(1, reservation.roomType.capacity ?? 1);
+  const roomOptions = useMemo(
+    () =>
+      (rooms ?? []).filter(
+        (room) => room.roomType.id === reservation.roomType.id
+      ),
+    [rooms, reservation.roomType.id]
+  );
+  const blockedRoomIds = useMemo(
+    () =>
+      new Set(
+        (occupiedRoomIds ?? [])
+          .map((id) => id?.trim())
+          .filter((id): id is string => Boolean(id))
+      ),
+    [occupiedRoomIds]
+  );
+  const assignedRoomId = reservation.checkInForm?.roomId ?? "";
+  const availableRooms = useMemo(
+    () =>
+      roomOptions.filter((room) => {
+        if (assignedRoomId && room.id === assignedRoomId) return true;
+        return !blockedRoomIds.has(room.id);
+      }),
+    [roomOptions, assignedRoomId, blockedRoomIds]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -850,6 +967,7 @@ function CheckInFormModal({
       reservation.checkIn;
 
     setArrivalTime(toDatetimeLocal(arrivalSource));
+    setRoomId(reservation.checkInForm?.roomId ?? "");
     setDeliveredItems(
       (reservation.checkInForm?.deliveredItems ?? []).map((item) => ({
         label: item.label,
@@ -891,6 +1009,20 @@ function CheckInFormModal({
     setError(null);
   }, [open, reservation]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (roomId) {
+      const stillSelectable = availableRooms.some((room) => room.id === roomId);
+      if (!stillSelectable) {
+        setRoomId("");
+      }
+      return;
+    }
+    if (!roomId && availableRooms.length === 1) {
+      setRoomId(availableRooms[0].id);
+    }
+  }, [open, roomId, availableRooms]);
+
   if (!open) return null;
 
   const handleSubmit = async () => {
@@ -906,8 +1038,17 @@ function CheckInFormModal({
       setError("Check-in saati girmelisin.");
       return;
     }
-    if (!normalizedItems.length) {
-      setError("Teslim edilen eşyaları eklemelisin.");
+    if (!roomId) {
+      setError("Kedinin kalacagi odayi secmelisin.");
+      return;
+    }
+    const selectedRoom = roomOptions.find((room) => room.id === roomId);
+    if (roomOptions.length > 0 && !selectedRoom) {
+      setError("Secilen oda, rezervasyon oda tipiyle uyumlu olmali.");
+      return;
+    }
+    if (blockedRoomIds.has(roomId) && roomId !== assignedRoomId) {
+      setError("Secilen oda su anda dolu, lütfen baska bir oda sec.");
       return;
     }
 
@@ -936,13 +1077,14 @@ function CheckInFormModal({
 
     const payload: CheckInForm = {
       arrivalTime: new Date(arrivalTime).toISOString(),
-      deliveredItems: normalizedItems,
+      deliveredItems: normalizedItems.length ? normalizedItems : undefined,
       foodPlan: normalizedFoodPlan,
       medicationPlan: normalizedMedications.length
         ? normalizedMedications
         : undefined,
       weightKg: normalizeNumber(weightKg),
       catCondition: trimOrUndefined(catCondition),
+      roomId,
       hasVaccineCard,
       hasFleaTreatment,
       handledBy: trimOrUndefined(handledBy),
@@ -981,6 +1123,69 @@ function CheckInFormModal({
         </>
       }
     >
+      <div className="space-y-2">
+        <label className="text-sm font-semibold text-[var(--admin-text-strong)]">
+          Kalacagi oda
+        </label>
+        <select
+          value={roomId}
+          onChange={(e) => setRoomId(e.target.value)}
+          disabled={roomsLoading || roomOptions.length === 0 || Boolean(occupiedRoomsLoading)}
+          className="w-full rounded-xl border bg-[var(--admin-surface-alt)] px-3 py-2 text-sm text-[var(--admin-text-strong)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
+        >
+          <option value="">Oda sec</option>
+          {roomOptions.map((room) => {
+            const isBlocked = blockedRoomIds.has(room.id) && room.id !== assignedRoomId;
+            const occupancy = occupancyInfo[room.id];
+            const capacityForRoom = Math.max(
+              1,
+              occupancy?.capacity ?? room.roomType.capacity ?? defaultRoomCapacity,
+            );
+            const occupiedCount = Math.min(occupancy?.occupied ?? 0, capacityForRoom);
+            const occupancyPercent = Math.round((occupiedCount / capacityForRoom) * 100);
+            return (
+              <option key={room.id} value={room.id} disabled={isBlocked}>
+                {`${room.name} - %${occupancyPercent} dolu (${occupiedCount}/${capacityForRoom})${
+                  isBlocked ? " (Dolu)" : ""
+                }`}
+              </option>
+            );
+          })}
+        </select>
+        {roomsLoading && (
+          <p className="text-xs text-[var(--admin-muted)]">
+            Odalar yukleniyor...
+          </p>
+        )}
+        {!roomsLoading && occupiedRoomsLoading && (
+          <p className="text-xs text-[var(--admin-muted)]">
+            Oda doluluk bilgisi guncelleniyor...
+          </p>
+        )}
+        {!roomsLoading && roomsError && (
+          <p className="text-xs font-semibold text-red-500">
+            Oda listesi alinamadi: {roomsError}
+          </p>
+        )}
+        {!roomsLoading && !roomsError && !occupiedRoomsLoading && occupiedRoomsError && (
+          <p className="text-xs font-semibold text-red-500">
+            Dolu oda bilgisi alinamadi: {occupiedRoomsError}
+          </p>
+        )}
+        {!roomsLoading && !roomsError && roomOptions.length === 0 && (
+          <p className="text-xs font-semibold text-red-500">
+            Bu oda tipi icin aktif oda bulunamadi.
+          </p>
+        )}
+        {!roomsLoading &&
+          !roomsError &&
+          roomOptions.length > 0 &&
+          availableRooms.length === 0 && (
+            <p className="text-xs font-semibold text-red-500">
+              Bu oda tipi icin bos oda kalmadi.
+            </p>
+          )}
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-semibold text-[var(--admin-text-strong)]">
@@ -1199,10 +1404,12 @@ function CheckOutFormModal({
       setError("Check-out saati girmelisin.");
       return;
     }
+
     if (!normalizedItems.length) {
       setError("Geri teslim edilen eşyaları eklemelisin.");
       return;
     }
+
     if (!catCondition.trim()) {
       setError("Çıkış durumunu yazmalısın.");
       return;
@@ -1802,4 +2009,19 @@ function normalizeNumber(value?: string | null) {
   if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function resolveReservationSlotsForRoom(reservation: Reservation, capacity: number) {
+  const normalizedCapacity = Math.max(1, capacity);
+  if (reservation.reservedSlots && reservation.reservedSlots > 0) {
+    return Math.min(reservation.reservedSlots, normalizedCapacity);
+  }
+  if (reservation.allowRoomSharing === false) {
+    return normalizedCapacity;
+  }
+  const catCount = reservation.cats?.length ?? 0;
+  if (catCount > 0) {
+    return Math.min(catCount, normalizedCapacity);
+  }
+  return normalizedCapacity;
 }

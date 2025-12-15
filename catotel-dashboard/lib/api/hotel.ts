@@ -9,6 +9,7 @@ import type {
   Cat,
   CustomerProfile,
   Reservation,
+  Room,
   RoomType,
 } from '@/types/hotel';
 
@@ -55,6 +56,10 @@ export const HotelApi = {
     const qs = params.toString();
     return clientRequest<RoomType[]>(`/api/room-types${qs ? `?${qs}` : ''}`);
   },
+  listRoomUnits: (includeInactive = false) =>
+    clientRequest<Room[]>(
+      `/api/rooms${includeInactive ? '?includeInactive=true' : ''}`,
+    ),
   listReservations: (status?: ReservationStatusValue) =>
     clientRequest<Reservation[]>(
       `/api/reservations${status ? `?status=${status}` : ''}`,

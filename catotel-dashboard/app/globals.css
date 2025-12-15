@@ -147,6 +147,37 @@ textarea {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.admin-shell {
+  scrollbar-color: #cbd5e1 var(--admin-surface-alt);
+}
+
+.admin-shell::-webkit-scrollbar,
+.admin-shell *::-webkit-scrollbar {
+  width: 10px;
+}
+
+.admin-shell::-webkit-scrollbar-track,
+.admin-shell *::-webkit-scrollbar-track {
+  background: var(--admin-surface-alt);
+}
+
+.admin-shell::-webkit-scrollbar-thumb,
+.admin-shell *::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 2px solid var(--admin-surface-alt);
+}
+
+.admin-shell[data-theme='dark'] {
+  scrollbar-color: #475569 var(--admin-surface-alt);
+}
+
+.admin-shell[data-theme='dark']::-webkit-scrollbar-thumb,
+.admin-shell[data-theme='dark'] *::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-color: var(--admin-surface);
+}
+
 .admin-heat-card {
   background: linear-gradient(135deg, rgba(255, 182, 115, 0.45), rgba(63, 141, 144, 0.35));
 }

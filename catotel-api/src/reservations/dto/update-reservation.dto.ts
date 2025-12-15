@@ -78,6 +78,11 @@ class CheckInFormDto {
   arrivalTime?: string;
 
   @IsOptional()
+  @IsString()
+  @Matches(/^c[a-z0-9]{24}$/i, { message: 'roomId must be a valid cuid' })
+  roomId?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CheckItemDto)

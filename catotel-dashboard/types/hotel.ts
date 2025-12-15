@@ -90,6 +90,7 @@ export type CheckInForm = {
   medicationPlan?: MedicationPlan[];
   weightKg?: number | string | null;
   catCondition?: string | null;
+  roomId?: string | null;
   hasVaccineCard?: boolean | null;
   hasFleaTreatment?: boolean | null;
   handledBy?: string | null;
