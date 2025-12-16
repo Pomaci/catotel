@@ -97,6 +97,13 @@ To publish the schema for client generation, run `npm run openapi:json` which wr
 - **Staff Tasks** (`/staff/tasks`): caregivers monitor and close care tasks tied to reservations/cats.
 - **Addon Services & Payments**: modelled in Prisma (addons + payments) ready for future endpoints/integrations.
 
+### Room assignments & check-in guarantees
+
+- Physical rooms are tracked through the new `RoomAssignment` + `RoomAssignmentCat` tables. Each reservation automatically receives an assignment that stores `roomId`, slot usage, and cat-level mapping.
+- `RoomAssignmentService` rebalances the entire room type after every reservation create/update. It prioritises keeping the same customer's cats together, fills the smallest possible number of room slots, and respects exclusivity (`allowRoomSharing=false`).
+- Once a reservation status flips to `CHECKED_IN`, its assignment is locked (`lockedAt` is set) so subsequent rebalances never move that stay. Cancelling/checking out removes the assignment so future bookings can reuse the room.
+- To keep the Prisma schema in sync, run `npx prisma migrate dev` so the `RoomAssignment*` tables are created locally, then run the Jest suite (`npm run test`) to validate the updated service logic.
+
 ## Testing
 
 The repository includes lightweight Jest specs to ensure modules can be instantiated, plus a realistic e2e flow (`test/app.e2e-spec.ts`) that drives the authentication lifecycle through HTTP. The e2e suite replaces Prisma with an in-memory adapter (`test/utils/in-memory-prisma.service.ts`), so it runs deterministically without touching your real database. Because validation pipes reject malformed DTOs, prefer testing both success and failure scenarios for auth-critical endpoints.

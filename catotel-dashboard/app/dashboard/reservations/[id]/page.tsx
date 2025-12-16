@@ -396,10 +396,12 @@ function StayCard({
   nights: number;
   rooms?: Room[];
 }) {
-  const assignedRoomName =
-    reservation.checkInForm?.roomId && rooms?.length
-      ? rooms.find((room) => room.id === reservation.checkInForm?.roomId)?.name
-      : null;
+  const roomNameLookup = new Map((rooms ?? []).map((room) => [room.id, room.name]));
+  const checkInRoomName =
+    reservation.checkInForm?.roomId && roomNameLookup.size
+      ? roomNameLookup.get(reservation.checkInForm.roomId) ?? reservation.checkInForm.roomId
+      : reservation.checkInForm?.roomId ?? null;
+  const plannedAssignments = reservation.roomAssignments ?? [];
   return (
     <CardShell
       title="Konaklama"
@@ -424,9 +426,9 @@ function StayCard({
             <p className="text-xs text-[var(--admin-muted)]">
               {reservation.roomType.description ?? "Oda detayı belirtilmemiş."}
             </p>
-            {reservation.checkInForm?.roomId && (
+            {checkInRoomName && (
               <p className="mt-1 text-xs font-semibold text-[var(--admin-text-strong)]">
-                Atanan oda: {assignedRoomName ?? reservation.checkInForm.roomId}
+                Atanan oda: {checkInRoomName}
               </p>
             )}
           </div>
@@ -457,6 +459,32 @@ function StayCard({
           </div>
         </div>
       </div>
+      {plannedAssignments.length > 0 && (
+        <div className="rounded-2xl border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-alt)] p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">
+            Planlanan oda paylaşımı
+          </p>
+          <div className="mt-2 space-y-2">
+            {plannedAssignments.map((assignment) => (
+              <div
+                key={assignment.id}
+                className="flex flex-col gap-1 rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold admin-border md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <p>{assignment.room.name}</p>
+                  <p className="text-xs font-semibold text-[var(--admin-muted)]">
+                    {formatDateTime(assignment.checkIn)} → {formatDateTime(assignment.checkOut)}
+                  </p>
+                </div>
+                <div className="text-xs font-semibold text-[var(--admin-muted)]">
+                  {assignment.catCount} kedi ·{" "}
+                  {assignment.allowRoomSharing === false ? "Özel kullanım" : "Paylaşıma açık"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </CardShell>
   );
 }
@@ -948,7 +976,9 @@ function CheckInFormModal({
       ),
     [occupiedRoomIds]
   );
-  const assignedRoomId = reservation.checkInForm?.roomId ?? "";
+  const plannedAssignment = reservation.roomAssignments?.[0];
+  const assignmentRoomId = plannedAssignment?.room.id ?? "";
+  const assignedRoomId = reservation.checkInForm?.roomId ?? assignmentRoomId ?? "";
   const availableRooms = useMemo(
     () =>
       roomOptions.filter((room) => {
@@ -967,7 +997,7 @@ function CheckInFormModal({
       reservation.checkIn;
 
     setArrivalTime(toDatetimeLocal(arrivalSource));
-    setRoomId(reservation.checkInForm?.roomId ?? "");
+    setRoomId(reservation.checkInForm?.roomId ?? assignmentRoomId ?? "");
     setDeliveredItems(
       (reservation.checkInForm?.deliveredItems ?? []).map((item) => ({
         label: item.label,
@@ -1007,7 +1037,7 @@ function CheckInFormModal({
     setHandledBy(reservation.checkInForm?.handledBy ?? "");
     setAdditionalNotes(reservation.checkInForm?.additionalNotes ?? "");
     setError(null);
-  }, [open, reservation]);
+  }, [open, reservation, assignmentRoomId]);
 
   useEffect(() => {
     if (!open) return;
@@ -1018,10 +1048,14 @@ function CheckInFormModal({
       }
       return;
     }
-    if (!roomId && availableRooms.length === 1) {
+    if (assignmentRoomId && availableRooms.some((room) => room.id === assignmentRoomId)) {
+      setRoomId(assignmentRoomId);
+      return;
+    }
+    if (availableRooms.length === 1) {
       setRoomId(availableRooms[0].id);
     }
-  }, [open, roomId, availableRooms]);
+  }, [open, roomId, availableRooms, assignmentRoomId]);
 
   if (!open) return null;
 
@@ -1124,6 +1158,14 @@ function CheckInFormModal({
       }
     >
       <div className="space-y-2">
+        {plannedAssignment && (
+          <div className="rounded-2xl border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-xs font-semibold text-[var(--admin-muted)]">
+            Planlanan oda:{" "}
+            <span className="text-[var(--admin-text-strong)]">{plannedAssignment.room.name}</span>{" "}
+            ({plannedAssignment.catCount} kedi ·{" "}
+            {plannedAssignment.allowRoomSharing === false ? "özel kullanım" : "paylaşımlı"})
+          </div>
+        )}
         <label className="text-sm font-semibold text-[var(--admin-text-strong)]">
           Kalacagi oda
         </label>

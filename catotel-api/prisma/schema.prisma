@@ -136,6 +136,7 @@ model Cat {
   photoUrl      String?
   reservations  ReservationCat[]
   tasks         CareTask[]        @relation("TaskCat")
+  roomAssignments RoomAssignmentCat[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -164,6 +165,7 @@ model Room {
   roomType    RoomType   @relation(fields: [roomTypeId], references: [id])
   description String?
   isActive    Boolean    @default(true)
+  assignments RoomAssignment[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -202,6 +204,7 @@ model Reservation {
   cats            ReservationCat[]
   services        ReservationService[]
   payments        Payment[]
+  roomAssignments RoomAssignment[]
   tasks           CareTask[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -303,4 +306,34 @@ model PricingSettings {
   longStayDiscount          Json?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
+}
+
+model RoomAssignment {
+  id               String      @id @default(cuid())
+  reservationId    String
+  roomId           String
+  checkIn          DateTime
+  checkOut         DateTime
+  catCount         Int
+  allowRoomSharing Boolean    @default(true)
+  lockedAt         DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  reservation      Reservation @relation(fields: [reservationId], references: [id])
+  room             Room        @relation(fields: [roomId], references: [id])
+  cats             RoomAssignmentCat[]
+
+  @@index([roomId])
+  @@index([reservationId])
+  @@index([checkIn, checkOut])
+}
+
+model RoomAssignmentCat {
+  assignmentId String
+  catId        String
+  assignment   RoomAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  cat          Cat            @relation(fields: [catId], references: [id])
+
+  @@id([assignmentId, catId])
+  @@index([catId])
 }

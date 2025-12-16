@@ -11,10 +11,32 @@ import { UpdateReservationDto } from './dto/update-reservation.dto';
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
 import { randomBytes } from 'crypto';
 import { publicUserSelect } from 'src/user/public-user.select';
+import { RoomAssignmentService } from './room-assignment.service';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roomAssignmentService: RoomAssignmentService,
+  ) {}
+
+  private readonly reservationInclude = {
+    roomType: true,
+    customer: { include: { user: { select: publicUserSelect } } },
+    cats: { include: { cat: true } },
+    services: { include: { service: true } },
+    roomAssignments: {
+      include: {
+        room: true,
+        cats: { include: { cat: true } },
+      },
+    },
+  } as const;
+
+  private readonly reservationIncludeWithPayments = {
+    ...this.reservationInclude,
+    payments: true,
+  } as const;
 
   async list(userId: string, role: UserRole, status?: ReservationStatus) {
     const where: Prisma.ReservationWhereInput =
@@ -26,25 +48,14 @@ export class ReservationsService {
     return this.prisma.reservation.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: {
-        roomType: true,
-        customer: { include: { user: { select: publicUserSelect } } },
-        cats: { include: { cat: true } },
-        services: { include: { service: true } },
-      },
+      include: this.reservationInclude,
     });
   }
 
   async getById(id: string, userId: string, role: UserRole) {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
-      include: {
-        roomType: true,
-        customer: { include: { user: { select: publicUserSelect } } },
-        cats: { include: { cat: true } },
-        services: { include: { service: true } },
-        payments: true,
-      },
+      include: this.reservationIncludeWithPayments,
     });
     if (!reservation) {
       throw new NotFoundException('Reservation not found');
@@ -185,7 +196,7 @@ export class ReservationsService {
           },
         );
 
-        return tx.reservation.create({
+        const created = await tx.reservation.create({
           data: {
             code,
             customerId: targetCustomer.id,
@@ -209,11 +220,16 @@ export class ReservationsService {
                 }
               : undefined,
           },
-          include: {
-            roomType: true,
-            cats: { include: { cat: true } },
-            services: { include: { service: true } },
-          },
+        });
+
+        await this.roomAssignmentService.rebalanceRoomType(
+          freshRoomType.id,
+          tx,
+        );
+
+        return tx.reservation.findUniqueOrThrow({
+          where: { id: created.id },
+          include: this.reservationInclude,
         });
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -409,7 +425,7 @@ export class ReservationsService {
           },
         );
 
-        const updated = await tx.reservation.update({
+        await tx.reservation.update({
           where: { id },
           data: {
             roomTypeId: freshRoomType.id,
@@ -435,15 +451,23 @@ export class ReservationsService {
                 }
               : undefined,
           },
-          include: {
-            roomType: true,
-            customer: { include: { user: { select: publicUserSelect } } },
-            cats: { include: { cat: true } },
-            services: { include: { service: true } },
-            payments: true,
-          },
         });
-        return updated;
+
+        await this.roomAssignmentService.rebalanceRoomType(
+          freshRoomType.id,
+          tx,
+        );
+        if (status === ReservationStatus.CHECKED_IN) {
+          await this.roomAssignmentService.lockAssignmentsForReservation(
+            id,
+            tx,
+          );
+        }
+
+        return tx.reservation.findUniqueOrThrow({
+          where: { id },
+          include: this.reservationIncludeWithPayments,
+        });
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );

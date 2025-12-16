@@ -7,6 +7,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { RoomAssignmentService } from './room-assignment.service';
 
 const decimal = (value: string | number) => new Prisma.Decimal(value);
 
@@ -26,11 +27,17 @@ describe('ReservationsService', () => {
     $transaction: jest.fn(),
   } as unknown as PrismaService;
 
+  const mockRoomAssignmentService = {
+    rebalanceRoomType: jest.fn(),
+    lockAssignmentsForReservation: jest.fn(),
+  } as unknown as RoomAssignmentService;
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
         ReservationsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: RoomAssignmentService, useValue: mockRoomAssignmentService },
       ],
     }).compile();
     service = module.get(ReservationsService);

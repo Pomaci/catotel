@@ -15,7 +15,14 @@ import {
   Plus,
   UserRound,
 } from "lucide-react";
-import type { AddonService, Cat, Reservation, RoomType } from "@/types/hotel";
+import type {
+  AddonService,
+  Cat,
+  Reservation,
+  ReservationRoomAssignment,
+  RoomType,
+} from "@/types/hotel";
+import { ReservationStatus } from "@/types/enums";
 import { AdminApi, type PricingSettingsResponse } from "@/lib/api/admin";
 import { HotelApi } from "@/lib/api/hotel";
 import type { CustomerSearch } from "@/types/user";
@@ -314,7 +321,11 @@ export function ReservationWizard({
 
   const hasCustomerSelected = Boolean(selectedCustomerId);
   const hasSelectedCats = selectedCats.length > 0;
-  const isCheckInBeforeToday = checkIn && checkIn < todayIso;
+  const hasStartedStay =
+    initialReservation?.status === ReservationStatus.CHECKED_IN ||
+    initialReservation?.status === ReservationStatus.CHECKED_OUT;
+  const enforceFutureCheckIn = !isEdit || !hasStartedStay;
+  const isCheckInBeforeToday = enforceFutureCheckIn && checkIn && checkIn < todayIso;
   const isCheckOutBeforeCheckIn = checkIn && checkOut && checkOut <= checkIn;
   const nightCount = useMemo(() => {
     if (!checkIn || !checkOut) return null;
@@ -656,49 +667,52 @@ export function ReservationWizard({
                     </span>
                   )}
                 </div>
-                {availableCats.length === 0 && (
-                  <p className="text-xs text-[var(--admin-muted)]">
-                    Henüz kedi eklenmemiş.
-                  </p>
-                )}
-                <div className="grid gap-3">
-                  {availableCats.map((cat) => {
-                    const checked = selectedCats.includes(cat.id);
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedCats((prev) =>
-                            prev.includes(cat.id)
-                              ? prev.filter((c) => c !== cat.id)
-                              : [...prev, cat.id]
-                          )
-                        }
-                        className={clsx(
-                          "flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition admin-border",
-                          checked
-                            ? "border-peach-300 bg-[var(--admin-highlight-muted)]"
-                            : "hover:border-peach-200"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--admin-highlight-muted)] text-peach-500">
-                            <PawPrint className="h-4 w-4" aria-hidden />
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold">{cat.name}</p>
-                            <p className="text-xs text-[var(--admin-muted)]">
-                              {cat.breed ?? "Cins bilinmiyor"}
-                            </p>
-                          </div>
-                        </div>
-                        {checked && (
-                          <Check className="h-4 w-4 text-peach-500" aria-hidden />
-                        )}
-                      </button>
-                    );
-                  })}
+                <div className="min-h-[12rem] max-h-[26rem] overflow-y-auto pr-1">
+                  {availableCats.length === 0 ? (
+                    <p className="text-xs text-[var(--admin-muted)]">
+                      Henüz kedi eklenmemiş.
+                    </p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {availableCats.map((cat) => {
+                        const checked = selectedCats.includes(cat.id);
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedCats((prev) =>
+                                prev.includes(cat.id)
+                                  ? prev.filter((c) => c !== cat.id)
+                                  : [...prev, cat.id]
+                              )
+                            }
+                            className={clsx(
+                              "flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition admin-border",
+                              checked
+                                ? "border-peach-300 bg-[var(--admin-highlight-muted)]"
+                                : "hover:border-peach-200"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--admin-highlight-muted)] text-peach-500">
+                                <PawPrint className="h-4 w-4" aria-hidden />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold">{cat.name}</p>
+                                <p className="text-xs text-[var(--admin-muted)]">
+                                  {cat.breed ?? "Cins bilinmiyor"}
+                                </p>
+                              </div>
+                            </div>
+                            {checked && (
+                              <Check className="h-4 w-4 text-peach-500" aria-hidden />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -909,6 +923,9 @@ export function ReservationWizard({
               )}
             </div>
           </div>
+          {initialReservation && (
+            <RoomAssignmentSummary assignments={initialReservation.roomAssignments} />
+          )}
         </StepCard>
       )}
 
@@ -1252,6 +1269,67 @@ function SummaryStat({
       <p className="text-sm font-semibold text-[var(--admin-text-strong)]">{value}</p>
       {description && (
         <p className="text-xs text-[var(--admin-muted)]">{description}</p>
+      )}
+    </div>
+  );
+}
+
+function RoomAssignmentSummary({
+  assignments,
+}: {
+  assignments?: ReservationRoomAssignment[] | null;
+}) {
+  const hasAssignments = Boolean(assignments && assignments.length > 0);
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed bg-[var(--admin-surface-alt)] p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-[var(--admin-text-strong)]">Mevcut oda ataması</p>
+          <p className="text-xs text-[var(--admin-muted)]">
+            Kaydettiğinde sistem oda planlamasını otomatik günceller.
+          </p>
+        </div>
+        {hasAssignments && (
+          <span className="admin-chip">
+            {assignments?.some((assignment) => assignment.lockedAt) ? "Kilitli odalar" : "Plan aşamasında"}
+          </span>
+        )}
+      </div>
+      {hasAssignments ? (
+        <ul className="mt-3 space-y-2">
+          {assignments!.map((assignment) => (
+            <li
+              key={assignment.id}
+              className="flex flex-col gap-2 rounded-2xl border bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold text-[var(--admin-text-strong)] admin-border sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p>{assignment.room.name}</p>
+                <p className="text-xs font-semibold text-[var(--admin-muted)]">
+                  {compactDate(assignment.checkIn)} ƒ?" {compactDate(assignment.checkOut)}
+                </p>
+              </div>
+              <div className="text-xs font-semibold text-[var(--admin-muted)] sm:text-right">
+                <span
+                  className={clsx(
+                    "inline-flex items-center gap-2 rounded-full px-2 py-0.5 text-[11px]",
+                    assignment.lockedAt
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-blue-100 text-blue-700",
+                  )}
+                >
+                  {assignment.lockedAt ? "Kilitli" : "Planlandı"}
+                </span>
+                <p className="mt-1">
+                  {assignment.catCount} kedi · {assignment.allowRoomSharing ? "Paylaşımlı" : "Özel"}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-xs font-semibold text-[var(--admin-muted)]">
+          Henüz oda ataması yapılmadı. Rezervasyonu kaydettiğinizde uygun oda otomatik seçilir.
+        </p>
       )}
     </div>
   );
@@ -1612,4 +1690,3 @@ function formatCurrency(value: number) {
     maximumFractionDigits: 0,
   }).format(Math.round(safeValue));
 }
-

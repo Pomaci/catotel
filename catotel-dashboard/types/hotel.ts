@@ -43,6 +43,21 @@ export type Room = {
   isActive: boolean;
 };
 
+export type ReservationRoomAssignment = {
+  id: string;
+  room: {
+    id: string;
+    name: string;
+    roomTypeId: string;
+  };
+  checkIn: string;
+  checkOut: string;
+  catCount: number;
+  allowRoomSharing?: boolean;
+  lockedAt?: string | null;
+  cats?: ReservationCat[];
+};
+
 export type AddonService = {
   id: string;
   name: string;
@@ -135,6 +150,7 @@ export type Reservation = {
     status: string;
     createdAt?: string;
   }>;
+  roomAssignments?: ReservationRoomAssignment[];
 };
 
 export type CustomerProfile = {
