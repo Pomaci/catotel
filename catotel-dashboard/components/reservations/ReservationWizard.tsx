@@ -26,6 +26,7 @@ import { ReservationStatus } from "@/types/enums";
 import { AdminApi, type PricingSettingsResponse } from "@/lib/api/admin";
 import { HotelApi } from "@/lib/api/hotel";
 import type { CustomerSearch } from "@/types/user";
+import { formatHotelDay, hotelNightCount, toHotelDayString } from "@/lib/utils/hotel-day";
 
 type StepKey = "customer" | "cats" | "dates" | "pricing";
 const stepOrder: StepKey[] = ["customer", "cats", "dates", "pricing"];
@@ -174,7 +175,7 @@ export function ReservationWizard({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<CustomerSearch[]>([]);
   const [searching, setSearching] = useState(false);
-  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayIso = useMemo(() => toHotelDayString(new Date()), []);
   const selectedCatCount = selectedCats.length;
   const [selectedAddons, setSelectedAddons] = useState<ReservationAddonInput[]>(
     initialReservation?.services.map((service) => ({
@@ -327,15 +328,10 @@ export function ReservationWizard({
   const enforceFutureCheckIn = !isEdit || !hasStartedStay;
   const isCheckInBeforeToday = enforceFutureCheckIn && checkIn && checkIn < todayIso;
   const isCheckOutBeforeCheckIn = checkIn && checkOut && checkOut <= checkIn;
-  const nightCount = useMemo(() => {
-    if (!checkIn || !checkOut) return null;
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diffDays = Math.ceil(
-      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return diffDays > 0 ? diffDays : null;
-  }, [checkIn, checkOut]);
+  const nightCount = useMemo(
+    () => hotelNightCount(checkIn, checkOut),
+    [checkIn, checkOut],
+  );
   const roomList = useMemo<RoomType[]>(
     () => availabilityRooms ?? roomTypes ?? rooms ?? [],
     [availabilityRooms, roomTypes, rooms],
@@ -1132,11 +1128,14 @@ export function ReservationWizard({
             </div>
             <div className="space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-4 admin-border">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Fiyat özeti</p>
+                <p className="text-sm font-semibold">Fiyat önizlemesi</p>
                 <p className="text-xl font-semibold text-[var(--admin-text-strong)]">
-                  {pricingBreakdown ? formatCurrency(pricingBreakdown.total) : "—"}
+                  {pricingBreakdown ? formatCurrency(pricingBreakdown.total) : "-"}
                 </p>
               </div>
+              <p className="text-xs text-[var(--admin-muted)]">
+                Nihai fiyat rezervasyon kaydedildiğinde backend tarafından hesaplanır.
+              </p>
               {pricingBreakdown ? (
                 <>
                   <Line
@@ -1637,7 +1636,7 @@ function calculatePricingBreakdown({
     discounts,
     addons: addonLines,
     addonsTotal,
-    total: Math.max(0, baseTotal - totalDiscount),
+    total: Math.max(0, baseTotal - totalDiscount + addonsTotal),
     remainingCapacity,
     allowRoomSharing,
   };
@@ -1689,4 +1688,8 @@ function formatCurrency(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(Math.round(safeValue));
+}
+
+function compactDate(value: string) {
+  return formatHotelDay(value, { day: "2-digit", month: "short" });
 }

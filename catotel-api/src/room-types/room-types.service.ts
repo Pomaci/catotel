@@ -4,10 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, ReservationStatus } from '@prisma/client';
-import { startOfDay } from 'date-fns';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomTypeDto } from './dto/create-room-type.dto';
 import { UpdateRoomTypeDto } from './dto/update-room-type.dto';
+import {
+  parseHotelDayInput,
+  startOfUtcDay,
+} from 'src/common/hotel-day.util';
 
 @Injectable()
 export class RoomTypesService {
@@ -36,12 +39,12 @@ export class RoomTypesService {
     activeOnly = true,
     partySize?: number,
   ) {
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
+    const start = parseHotelDayInput(checkIn, 'checkIn');
+    const end = parseHotelDayInput(checkOut, 'checkOut');
     if (start >= end) {
       throw new BadRequestException('checkOut must be after checkIn');
     }
-    if (start < startOfDay(new Date())) {
+    if (start < startOfUtcDay(new Date())) {
       throw new BadRequestException('checkIn cannot be in the past');
     }
 

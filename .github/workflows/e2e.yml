@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Clean leftover artifacts
+        run: |
+          rm -rf catotel-api/dist
+          rm -rf catotel-dashboard/.next
+          rm -rf logs
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -57,6 +62,11 @@ jobs:
           --health-retries=5
     steps:
       - uses: actions/checkout@v4
+      - name: Clean leftover artifacts
+        run: |
+          rm -rf catotel-api/dist
+          rm -rf catotel-dashboard/.next
+          rm -rf logs
       - uses: actions/setup-node@v4
         with:
           node-version: 20

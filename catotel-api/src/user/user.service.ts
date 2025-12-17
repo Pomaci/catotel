@@ -15,6 +15,7 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { EnvVars } from 'src/config/config.schema';
+import { DEFAULT_PASSWORD_RESET_URL } from 'src/config/defaults';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { CreateManagedUserDto } from './dto/create-managed-user.dto';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -35,7 +36,7 @@ export class UserService {
   ) {
     this.resetUrl =
       this.config.get('PASSWORD_RESET_URL', { infer: true }) ??
-      'http://localhost:3100/auth/reset-password';
+      DEFAULT_PASSWORD_RESET_URL;
     this.resetTtlMinutes =
       this.config.get('PASSWORD_RESET_TOKEN_TTL_MINUTES', { infer: true }) ??
       30;

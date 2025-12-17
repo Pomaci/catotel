@@ -28,7 +28,7 @@ The server boots with a global `/api` prefix and URI versioning (`/api/v1`). Adj
 | `PORT` | HTTP port | `3000` |
 | `NODE_ENV` | `development`, `test`, or `production` | `development` |
 | `DATABASE_URL` | PostgreSQL connection string (Prisma format) | `-` |
-| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins (startup fails if empty/invalid) | `http://localhost:3000,http://localhost:3001` |
+| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins (startup fails if empty/invalid) | `http://localhost:3000,http://localhost:3100` |
 | `ACCESS_TOKEN_SECRET` | HMAC secret for access tokens | `-` |
 | `REFRESH_TOKEN_SECRET` | HMAC secret for refresh tokens | `-` |
 | `ACCESS_TOKEN_TTL` | Access token lifetime (jsonwebtoken format) | `15m` |
@@ -96,6 +96,13 @@ To publish the schema for client generation, run `npm run openapi:json` which wr
 - **Reservations** (`/reservations`): customers book rooms for multiple cats, add optional services; staff/admin can query any reservation.
 - **Staff Tasks** (`/staff/tasks`): caregivers monitor and close care tasks tied to reservations/cats.
 - **Addon Services & Payments**: modelled in Prisma (addons + payments) ready for future endpoints/integrations.
+
+### Hotel days & timezone safety
+
+- `checkIn` and `checkOut` work as *hotel days* (date-only). The API persists them at midnight UTC via `src/common/hotel-day.util.ts` and completely ignores any clock component supplied in the payload.
+- Actual arrival/departure timestamps belong to the optional `checkInForm.arrivalTime` / `checkOutForm.departureTime` fields so the “operational” time data stays separate from the stay window.
+- Always send `YYYY-MM-DD` strings (or ISO strings whose date portion is correct); the service trims the time part, validates the result, and rejects past hotel days unless you’re force-checking in.
+- When writing client code, treat those values as opaque strings or run them through the `@/lib/utils/hotel-day` helpers. Calling `new Date('YYYY-MM-DD')` and letting the browser adjust it by timezone will shift the day and eventually create double-bookings.
 
 ### Room assignments & check-in guarantees
 

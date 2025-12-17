@@ -8,16 +8,39 @@ import { Prisma, ReservationStatus, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
-import { differenceInCalendarDays, startOfDay } from 'date-fns';
 import { randomBytes } from 'crypto';
 import { publicUserSelect } from 'src/user/public-user.select';
 import { RoomAssignmentService } from './room-assignment.service';
+import { PricingSettingsService } from 'src/pricing-settings/pricing-settings.service';
+import { PricingSettingsResponseDto } from 'src/pricing-settings/dto/pricing-settings.dto';
+import {
+  differenceInHotelNights,
+  parseHotelDayInput,
+  startOfUtcDay,
+} from 'src/common/hotel-day.util';
+
+type NormalizedMultiCatTier = { catCount: number; discountPercent: number };
+type NormalizedSharedRoomTier = {
+  remainingCapacity: number;
+  discountPercent: number;
+};
+type NormalizedLongStayTier = { minNights: number; discountPercent: number };
+
+type NormalizedPricingSettings = {
+  multiCatDiscountEnabled: boolean;
+  multiCatDiscounts: NormalizedMultiCatTier[];
+  sharedRoomDiscountEnabled: boolean;
+  sharedRoomDiscounts: NormalizedSharedRoomTier[];
+  longStayDiscountEnabled: boolean;
+  longStayDiscounts: NormalizedLongStayTier[];
+};
 
 @Injectable()
 export class ReservationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roomAssignmentService: RoomAssignmentService,
+    private readonly pricingSettings: PricingSettingsService,
   ) {}
 
   private readonly reservationInclude = {
@@ -77,8 +100,8 @@ export class ReservationsService {
       throw new BadRequestException('roomTypeId is required');
     }
 
-    const checkIn = new Date(dto.checkIn);
-    const checkOut = new Date(dto.checkOut);
+    const checkIn = parseHotelDayInput(dto.checkIn, 'checkIn');
+    const checkOut = parseHotelDayInput(dto.checkOut, 'checkOut');
     if (checkIn >= checkOut) {
       throw new BadRequestException('Check-out must be after check-in');
     }
@@ -88,7 +111,7 @@ export class ReservationsService {
     if (
       isCheckInDateFromPayload &&
       !isStatusCheckIn &&
-      checkIn < startOfDay(new Date())
+      checkIn < startOfUtcDay(new Date())
     ) {
       throw new BadRequestException('Check-in cannot be in the past');
     }
@@ -136,10 +159,13 @@ export class ReservationsService {
       requiredSlots,
     );
 
-    let nights = differenceInCalendarDays(checkOut, checkIn);
+    let nights = differenceInHotelNights(checkOut, checkIn);
     if (nights <= 0) {
       nights = 1;
     }
+    const normalizedPricing = this.normalizePricingSettings(
+      await this.pricingSettings.getSettings(),
+    );
 
     const addons =
       dto.addons && dto.addons.length
@@ -194,6 +220,7 @@ export class ReservationsService {
             catCount: cats.length,
             allowRoomSharing,
           },
+          normalizedPricing,
         );
 
         const created = await tx.reservation.create({
@@ -280,8 +307,12 @@ export class ReservationsService {
       throw new ForbiddenException('Only staff can update reservations');
     }
 
-    const checkIn = dto.checkIn ? new Date(dto.checkIn) : existing.checkIn;
-    const checkOut = dto.checkOut ? new Date(dto.checkOut) : existing.checkOut;
+    const checkIn = dto.checkIn
+      ? parseHotelDayInput(dto.checkIn, 'checkIn')
+      : startOfUtcDay(existing.checkIn);
+    const checkOut = dto.checkOut
+      ? parseHotelDayInput(dto.checkOut, 'checkOut')
+      : startOfUtcDay(existing.checkOut);
     if (checkIn >= checkOut) {
       throw new BadRequestException('Check-out must be after check-in');
     }
@@ -294,7 +325,7 @@ export class ReservationsService {
       isCheckInDateFromPayload &&
       !isStatusCheckIn &&
       !isRevertingFromCheckIn &&
-      checkIn < startOfDay(new Date())
+      checkIn < startOfUtcDay(new Date())
     ) {
       throw new BadRequestException('Check-in cannot be in the past');
     }
@@ -360,8 +391,11 @@ export class ReservationsService {
       }
     }
 
-    let nights = differenceInCalendarDays(checkOut, checkIn);
+    let nights = differenceInHotelNights(checkOut, checkIn);
     if (nights <= 0) nights = 1;
+    const normalizedPricing = this.normalizePricingSettings(
+      await this.pricingSettings.getSettings(),
+    );
 
     const status =
       dto.status && this.isValidTransition(existing.status, dto.status)
@@ -423,6 +457,7 @@ export class ReservationsService {
             catCount: cats.length,
             allowRoomSharing,
           },
+          normalizedPricing,
         );
 
         await tx.reservation.update({
@@ -507,19 +542,204 @@ export class ReservationsService {
     nights: number,
     services: { unitPrice: Prisma.Decimal; quantity: number }[],
     options: { capacity: number; catCount: number; allowRoomSharing: boolean },
+    pricing: NormalizedPricingSettings | null,
   ) {
-    const perCatRate = new Prisma.Decimal(nightlyRate).div(
-      options.capacity || 1,
-    );
+    const safeCapacity = Math.max(options.capacity || 1, 1);
+    const catCount = Math.max(options.catCount || 1, 1);
+    const safeNights = Math.max(nights, 1);
+    const perCatRate = new Prisma.Decimal(nightlyRate).div(safeCapacity);
+    const slotCount = options.allowRoomSharing
+      ? Math.min(catCount, safeCapacity)
+      : safeCapacity;
     const baseNightly = options.allowRoomSharing
-      ? perCatRate.mul(options.catCount)
+      ? perCatRate.mul(slotCount)
       : new Prisma.Decimal(nightlyRate);
 
-    let total = baseNightly.mul(nights);
+    let total = baseNightly.mul(safeNights);
+    const discount = this.calculateDiscountAmount(
+      total,
+      {
+        catCount,
+        nights: safeNights,
+        remainingCapacity: options.allowRoomSharing
+          ? Math.max(safeCapacity - catCount, 0)
+          : 0,
+        allowRoomSharing: options.allowRoomSharing,
+      },
+      pricing,
+    );
+    total = total.sub(discount);
+
     for (const service of services) {
       total = total.add(service.unitPrice.mul(service.quantity));
     }
+
+    if (total.lessThan(0)) {
+      total = new Prisma.Decimal(0);
+    }
     return total;
+  }
+
+  private calculateDiscountAmount(
+    baseTotal: Prisma.Decimal,
+    context: {
+      catCount: number;
+      nights: number;
+      remainingCapacity: number;
+      allowRoomSharing: boolean;
+    },
+    pricing: NormalizedPricingSettings | null,
+  ) {
+    if (!pricing) {
+      return new Prisma.Decimal(0);
+    }
+    let discount = new Prisma.Decimal(0);
+
+    if (
+      pricing.multiCatDiscountEnabled &&
+      pricing.multiCatDiscounts.length > 0
+    ) {
+      const applied = pricing.multiCatDiscounts
+        .filter((tier) => context.catCount >= tier.catCount)
+        .pop();
+      if (applied && applied.discountPercent > 0) {
+        discount = discount.add(
+          this.calculatePercentage(baseTotal, applied.discountPercent),
+        );
+      }
+    }
+
+    if (
+      context.allowRoomSharing &&
+      pricing.sharedRoomDiscountEnabled &&
+      pricing.sharedRoomDiscounts.length > 0
+    ) {
+      const applied = pricing.sharedRoomDiscounts
+        .filter((tier) => context.remainingCapacity >= tier.remainingCapacity)
+        .pop();
+      if (applied && applied.discountPercent > 0) {
+        discount = discount.add(
+          this.calculatePercentage(baseTotal, applied.discountPercent),
+        );
+      }
+    }
+
+    if (pricing.longStayDiscountEnabled && pricing.longStayDiscounts.length > 0) {
+      const applied = pricing.longStayDiscounts
+        .filter((tier) => context.nights >= tier.minNights)
+        .pop();
+      if (applied && applied.discountPercent > 0) {
+        discount = discount.add(
+          this.calculatePercentage(baseTotal, applied.discountPercent),
+        );
+      }
+    }
+
+    return discount;
+  }
+
+  private calculatePercentage(value: Prisma.Decimal, percent: number) {
+    if (!Number.isFinite(percent) || percent <= 0) {
+      return new Prisma.Decimal(0);
+    }
+    return value.mul(new Prisma.Decimal(percent).div(100));
+  }
+
+  private normalizePricingSettings(
+    payload?: PricingSettingsResponseDto | null,
+  ): NormalizedPricingSettings | null {
+    if (!payload) {
+      return null;
+    }
+
+    const multiCatDiscounts = (payload.multiCatDiscounts ?? [])
+      .map((tier) => ({
+        catCount: Math.max(1, Math.trunc(Number(tier.catCount))),
+        discountPercent: Number(tier.discountPercent),
+      }))
+      .filter(
+        (tier) =>
+          Number.isFinite(tier.catCount) &&
+          Number.isFinite(tier.discountPercent) &&
+          tier.discountPercent > 0,
+      )
+      .sort((a, b) => a.catCount - b.catCount);
+
+    let sharedSource =
+      payload.sharedRoomDiscounts && payload.sharedRoomDiscounts.length > 0
+        ? payload.sharedRoomDiscounts
+        : undefined;
+    if (
+      (!sharedSource || sharedSource.length === 0) &&
+      typeof payload.sharedRoomDiscountPercent === 'number' &&
+      Number.isFinite(payload.sharedRoomDiscountPercent)
+    ) {
+      sharedSource = [
+        {
+          remainingCapacity: 1,
+          discountPercent: payload.sharedRoomDiscountPercent,
+        },
+      ];
+    }
+    const sharedRoomDiscounts = (sharedSource ?? [])
+      .map((tier) => ({
+        remainingCapacity: Math.max(
+          0,
+          Math.trunc(Number(tier.remainingCapacity)),
+        ),
+        discountPercent: Number(tier.discountPercent),
+      }))
+      .filter(
+        (tier) =>
+          Number.isFinite(tier.remainingCapacity) &&
+          Number.isFinite(tier.discountPercent) &&
+          tier.discountPercent > 0,
+      )
+      .sort((a, b) => a.remainingCapacity - b.remainingCapacity);
+
+    let longStaySource =
+      payload.longStayDiscounts && payload.longStayDiscounts.length > 0
+        ? payload.longStayDiscounts
+        : undefined;
+    if (
+      (!longStaySource || longStaySource.length === 0) &&
+      payload.longStayDiscount
+    ) {
+      longStaySource = [
+        {
+          minNights: payload.longStayDiscount.minNights,
+          discountPercent: payload.longStayDiscount.discountPercent,
+        },
+      ];
+    }
+    const longStayDiscounts = (longStaySource ?? [])
+      .map((tier) => ({
+        minNights: Math.max(1, Math.trunc(Number(tier.minNights))),
+        discountPercent: Number(tier.discountPercent),
+      }))
+      .filter(
+        (tier) =>
+          Number.isFinite(tier.minNights) &&
+          Number.isFinite(tier.discountPercent) &&
+          tier.discountPercent > 0,
+      )
+      .sort((a, b) => a.minNights - b.minNights);
+
+    const longStayEnabled =
+      typeof payload.longStayDiscountEnabled === 'boolean'
+        ? payload.longStayDiscountEnabled
+        : payload.longStayDiscount
+          ? Boolean(payload.longStayDiscount.enabled)
+          : false;
+
+    return {
+      multiCatDiscountEnabled: Boolean(payload.multiCatDiscountEnabled),
+      multiCatDiscounts,
+      sharedRoomDiscountEnabled: Boolean(payload.sharedRoomDiscountEnabled),
+      sharedRoomDiscounts,
+      longStayDiscountEnabled: longStayEnabled,
+      longStayDiscounts,
+    };
   }
 
   private getActiveRoomCount(

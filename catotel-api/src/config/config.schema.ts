@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  DEFAULT_CORS_ORIGINS_STRING,
+  DEFAULT_PASSWORD_RESET_URL,
+} from './defaults';
 
 const booleanFromEnv = z.preprocess((value) => {
   if (typeof value === 'string') {
@@ -28,7 +32,7 @@ export const envSchema = z
       .string()
       .trim()
       .min(1, 'CORS_ORIGINS must include at least one origin')
-      .default('http://localhost:3000,http://localhost:3001'),
+      .default(DEFAULT_CORS_ORIGINS_STRING),
 
     ACCESS_TOKEN_SECRET: z
       .string()
@@ -58,7 +62,7 @@ export const envSchema = z
     PASSWORD_RESET_URL: z
       .string()
       .url()
-      .default('http://localhost:3100/auth/reset-password'),
+      .default(DEFAULT_PASSWORD_RESET_URL),
     PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce
       .number()
       .int()

@@ -46,11 +46,12 @@ async function bootstrap() {
       callback(new Error(`CORS blocked origin: ${origin ?? 'unknown'}`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    // CSRF header intentionally omitted until a server-side check is implemented.
     allowedHeaders: [
       'Content-Type',
       'Authorization',
       'X-Request-Id',
+      // Dashboard proxy + direct browser clients send the double-submit token.
+      'X-CSRF-Token',
     ],
     credentials: true,
   };

@@ -19,6 +19,13 @@ function extractSetCookies(res: Response): string[] {
   return header.split(/,(?=[^;]+=[^;]+)/).map((c) => c.trim()).filter(Boolean);
 }
 
+function appendCookies(response: NextResponse, cookies: string[]) {
+  for (const cookie of cookies) {
+    response.headers.append('set-cookie', cookie);
+  }
+  return response;
+}
+
 function isAccessTokenFresh(token: string) {
   // Only read the exp claim here; signature verification is handled by the API proxy.
   try {
@@ -37,15 +44,26 @@ async function syncSessionFromApi(request: NextRequest) {
       cache: 'no-store',
     });
     if (!res.ok) {
-      return { authenticated: false, response: null };
+      return { authenticated: false, cookies: [] };
     }
-    const next = NextResponse.next();
-    for (const cookie of extractSetCookies(res)) {
-      next.headers.append('set-cookie', cookie);
-    }
-    return { authenticated: true, response: next };
+    return { authenticated: true, cookies: extractSetCookies(res) };
   } catch {
-    return { authenticated: false, response: null };
+    return { authenticated: false, cookies: [] };
+  }
+}
+
+async function bootstrapCsrfCookie(request: NextRequest) {
+  try {
+    const csrfRes = await fetch(new URL('/api/auth/csrf', request.url), {
+      headers: { cookie: request.headers.get('cookie') ?? '' },
+      cache: 'no-store',
+    });
+    if (!csrfRes.ok) {
+      return [];
+    }
+    return extractSetCookies(csrfRes);
+  } catch {
+    return [];
   }
 }
 
@@ -73,60 +91,42 @@ function redirectToLogin(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = isProtectedPath(pathname);
-  const isAuthPath = pathname.startsWith('/auth');
   const hasCsrfCookie = Boolean(request.cookies.get(CSRF_COOKIE));
 
-  let bootstrapResponse: NextResponse | null = null;
-  if (isAuthPath && !hasCsrfCookie && request.method === 'GET') {
-    try {
-      const csrfRes = await fetch(new URL('/api/auth/csrf', request.url), {
-        headers: { cookie: request.headers.get('cookie') ?? '' },
-        cache: 'no-store',
-      });
-      if (csrfRes.ok) {
-        bootstrapResponse = NextResponse.next();
-        for (const cookie of extractSetCookies(csrfRes)) {
-          bootstrapResponse.headers.append('set-cookie', cookie);
-        }
-      }
-    } catch {
-      // ignore and fall through
-    }
-  }
-
+  const pendingCookies: string[] = [];
   const authenticated = await hasValidAccessToken(request);
   const fallback = authenticated ? null : await syncSessionFromApi(request);
-  const authOk = authenticated || fallback?.authenticated;
-  const responseWithCookies = fallback?.response ?? null;
+  const authOk = authenticated || Boolean(fallback?.authenticated);
+
+  if (fallback?.cookies?.length) {
+    pendingCookies.push(...fallback.cookies);
+  }
+
+  if (authOk && !hasCsrfCookie && request.method === 'GET') {
+    const csrfCookies = await bootstrapCsrfCookie(request);
+    if (csrfCookies.length) {
+      pendingCookies.push(...csrfCookies);
+    }
+  }
 
   if (isProtected) {
     if (!authOk) {
       return redirectToLogin(request);
     }
-    if (responseWithCookies) {
-      return responseWithCookies;
-    }
-    if (bootstrapResponse) {
-      return bootstrapResponse;
-    }
+    return appendCookies(NextResponse.next(), pendingCookies);
   }
 
   if (pathname === '/') {
     if (authOk) {
-      const redirect = NextResponse.redirect(
-        new URL('/dashboard', request.url),
+      return appendCookies(
+        NextResponse.redirect(new URL('/dashboard', request.url)),
+        pendingCookies,
       );
-      const cookieSource = responseWithCookies ?? bootstrapResponse;
-      if (cookieSource) {
-        for (const cookie of extractSetCookies(cookieSource)) {
-          redirect.headers.append('set-cookie', cookie);
-        }
-      }
-      return redirect;
     }
+    return appendCookies(NextResponse.next(), pendingCookies);
   }
 
-  return bootstrapResponse ?? NextResponse.next();
+  return appendCookies(NextResponse.next(), pendingCookies);
 }
 
 export const config = {

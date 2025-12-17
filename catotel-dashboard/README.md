@@ -35,6 +35,21 @@ Override the proxy target with the server-only `API_BASE_URL` (defaults to `http
 E2E_BASE_URL=http://localhost:3100 npm run test:e2e:web
 ```
 
+
+### OpenAPI client sync
+
+`@catotel/api-client` is linked via `file:../catotel-clients/api-client`. After changing backend DTOs/controllers, regenerate the client and pin the resulting version bump here so TypeScript catches drift immediately:
+
+```bash
+# from repo root
+cd catotel-clients/api-client
+npm run generate && npm run build && npm version patch
+cd ../..
+npm install --package-lock-only --prefix catotel-dashboard
+```
+
+Commit the `catotel-dashboard/package-lock.json` diff (and repeat the lock refresh in `catotel-mobile/`) whenever the generated client changes so CI flags mismatches early.
+
 ### Admin hesapları
 
 Self-service kayıtlar her zaman `CUSTOMER` rolü ile açılır. İlk admin hesabını başlatmak için en hızlı yol, veritabanında ilgili kullanıcının rolünü güncellemektir:

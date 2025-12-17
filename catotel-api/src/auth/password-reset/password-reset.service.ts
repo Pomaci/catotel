@@ -9,6 +9,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { UserService } from 'src/user/user.service';
 import { MailService } from 'src/mail/mail.service';
 import { EnvVars } from 'src/config/config.schema';
+import { DEFAULT_PASSWORD_RESET_URL } from 'src/config/defaults';
 import { randomUUID, createHash } from 'crypto';
 import { addMinutes, subMinutes } from 'date-fns';
 import * as bcrypt from 'bcrypt';
@@ -29,7 +30,7 @@ export class PasswordResetService {
   ) {
     this.resetUrl =
       this.config.get('PASSWORD_RESET_URL', { infer: true }) ??
-      'http://localhost:3100/auth/reset-password';
+      DEFAULT_PASSWORD_RESET_URL;
     this.tokenTtlMinutes =
       this.config.get('PASSWORD_RESET_TOKEN_TTL_MINUTES', { infer: true }) ??
       30;

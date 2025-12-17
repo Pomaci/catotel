@@ -1,0 +1,24 @@
+{
+  "name": "catotel-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "workspaces": [
+    "catotel-api",
+    "catotel-dashboard",
+    "catotel-mobile",
+    "catotel-clients/api-client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,dashboard,mobile -c green,cyan,magenta \"pnpm --filter catotel-api run dev\" \"pnpm --filter catotel-dashboard run dev\" \"pnpm --filter catotel-mobile run dev\"",
+    "dev:api": "pnpm --filter catotel-api run dev",
+    "dev:dashboard": "pnpm --filter catotel-dashboard run dev",
+    "dev:mobile": "pnpm --filter catotel-mobile run dev",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

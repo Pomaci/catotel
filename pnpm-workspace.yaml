@@ -1,0 +1,5 @@
+packages:
+  - catotel-api
+  - catotel-dashboard
+  - catotel-mobile
+  - catotel-clients/api-client

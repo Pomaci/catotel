@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RoomAssignmentService } from './room-assignment.service';
+import { PricingSettingsService } from 'src/pricing-settings/pricing-settings.service';
 
 const decimal = (value: string | number) => new Prisma.Decimal(value);
 
@@ -32,12 +33,20 @@ describe('ReservationsService', () => {
     lockAssignmentsForReservation: jest.fn(),
   } as unknown as RoomAssignmentService;
 
+  const mockPricingSettingsService = {
+    getSettings: jest.fn().mockResolvedValue(null),
+  } as unknown as PricingSettingsService;
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
         ReservationsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RoomAssignmentService, useValue: mockRoomAssignmentService },
+        {
+          provide: PricingSettingsService,
+          useValue: mockPricingSettingsService,
+        },
       ],
     }).compile();
     service = module.get(ReservationsService);
@@ -70,6 +79,14 @@ describe('ReservationsService', () => {
         status: ReservationStatus.PENDING,
       })),
       update: jest.fn(),
+      findMany: jest
+        .fn()
+        .mockResolvedValue(
+          Array.from({ length: overlapping }, () => ({
+            reservedSlots: baseRoomType.capacity,
+          })),
+        ),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'res-1' }),
     };
     const tx = {
       reservation: txReservation,
@@ -103,6 +120,7 @@ describe('ReservationsService', () => {
       checkIn: futureDate(3),
       checkOut: futureDate(5),
       catIds: ['cat-1'],
+      allowRoomSharing: false,
       addons: [
         { serviceId: 'svc-1', quantity: 2 },
         { serviceId: 'svc-2', quantity: 1 },
@@ -133,10 +151,9 @@ describe('ReservationsService', () => {
         checkIn: futureDate(3),
         checkOut: futureDate(4),
         catIds: ['cat-1'],
+        allowRoomSharing: false,
       }),
     ).rejects.toThrow(/Room type not available/);
-
-    expect(txReservation.count).toHaveBeenCalled();
   });
 
   it('rejects when no active rooms exist for selected type', async () => {
