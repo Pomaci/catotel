@@ -10,6 +10,9 @@ import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-option
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
+import { StructuredLogger } from './common/logger/structured-logger';
+
+const bootstrapLogger = new StructuredLogger('Bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -139,6 +142,12 @@ function normalizeOrigin(origin: string): string {
 }
 
 bootstrap().catch((error) => {
-  console.error('Failed to bootstrap application', error);
+  bootstrapLogger.error(
+    'Failed to bootstrap application',
+    {
+      error: error instanceof Error ? error.message : String(error),
+    },
+    error instanceof Error ? error.stack : undefined,
+  );
   process.exit(1);
 });

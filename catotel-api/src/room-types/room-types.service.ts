@@ -11,6 +11,10 @@ import {
   parseHotelDayInput,
   startOfUtcDay,
 } from 'src/common/hotel-day.util';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class RoomTypesService {
@@ -42,10 +46,14 @@ export class RoomTypesService {
     const start = parseHotelDayInput(checkIn, 'checkIn');
     const end = parseHotelDayInput(checkOut, 'checkOut');
     if (start >= end) {
-      throw new BadRequestException('checkOut must be after checkIn');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_INVALID_DATE_RANGE),
+      );
     }
     if (start < startOfUtcDay(new Date())) {
-      throw new BadRequestException('checkIn cannot be in the past');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_CHECKIN_IN_PAST),
+      );
     }
 
     const roomTypes = await this.prisma.roomType.findMany({
@@ -127,7 +135,9 @@ export class RoomTypesService {
   async update(id: string, dto: UpdateRoomTypeDto) {
     const existing = await this.prisma.roomType.findUnique({ where: { id } });
     if (!existing) {
-      throw new NotFoundException('Room type not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.ROOM_TYPE_NOT_FOUND),
+      );
     }
     const { nightlyRate, overbookingLimit, ...rest } = dto;
     return this.prisma.roomType.update({

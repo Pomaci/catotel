@@ -1,11 +1,11 @@
 ﻿"use client";
 
-import { ReservationWizard } from "@/components/reservations/ReservationWizard";
+import { ReservationWizard, type ReservationWizardValues } from "@/components/reservations/ReservationWizard";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { HotelApi } from "@/lib/api/hotel";
 import { useState } from "react";
-import { USER_ROLES } from "@/types/enums";
 import { StatusBanner } from "@/components/ui/StatusBanner";
+import type { ReservationRequestPayload } from "@/lib/api/payloads";
 
 export default function ReservationCreatePage() {
   const queryClient = useQueryClient();
@@ -15,13 +15,10 @@ export default function ReservationCreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [customerCreated, setCustomerCreated] = useState<string | null>(null);
-  const staffRoles = USER_ROLES.filter((r) => r !== "CUSTOMER");
-  const allowNewCustomer = profile?.user?.role
-    ? staffRoles.includes(profile.user.role)
-    : false;
+  const allowNewCustomer = profile?.user?.role ? profile.user.role !== "CUSTOMER" : false;
 
   const createMutation = useMutation({
-    mutationFn: (payload: any) => HotelApi.createReservation(payload),
+    mutationFn: (payload: ReservationRequestPayload) => HotelApi.createReservation(payload),
     onSuccess: () => {
       setSuccess("Rezervasyon başarıyla oluşturuldu.");
       setError(null);
@@ -33,23 +30,14 @@ export default function ReservationCreatePage() {
     },
   });
 
-  async function handleSubmit(values: {
-    roomTypeId: string | null;
-    catIds: string[];
-    checkIn: string;
-    checkOut: string;
-    specialRequests?: string;
-    customerId?: string | null;
-    allowRoomSharing?: boolean;
-    addons?: { serviceId: string; quantity: number }[];
-  }) {
+  async function handleSubmit(values: ReservationWizardValues) {
     setError(null);
     setSuccess(null);
     if (!values.roomTypeId || !values.catIds.length || !values.checkIn || !values.checkOut) {
       setError("Oda tipi, tarih ve kedi seçmek zorunludur.");
       return;
     }
-    await createMutation.mutateAsync({
+    const payload: ReservationRequestPayload = {
       roomTypeId: values.roomTypeId,
       catIds: values.catIds,
       checkIn: values.checkIn,
@@ -64,7 +52,8 @@ export default function ReservationCreatePage() {
               quantity: Math.max(1, addon.quantity),
             }))
           : undefined,
-    });
+    };
+    await createMutation.mutateAsync(payload);
   }
 
   return (
@@ -82,7 +71,7 @@ export default function ReservationCreatePage() {
         cats={cats}
         customerName={profile?.user.name ?? profile?.user.email ?? null}
         onSubmitAction={handleSubmit}
-        submitting={createMutation.isLoading}
+        submitting={createMutation.isPending}
         allowNewCustomer={Boolean(allowNewCustomer)}
         customerCreatedCallbackAction={(label) => setCustomerCreated(label)}
       />

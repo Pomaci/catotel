@@ -12,10 +12,25 @@ type CustomerSearch = {
   phone?: string | null;
 };
 
+type CatGender = "MALE" | "FEMALE" | "UNKNOWN";
+
+type CatFormState = {
+  customerId: string;
+  customerLabel: string;
+  name: string;
+  breed: string;
+  gender: CatGender;
+  birthDate: string;
+  isNeutered: boolean;
+  weightKg: string;
+  dietaryNotes: string;
+  medicalNotes: string;
+};
+
 type CatFormProps = {
   mode: "create" | "edit";
   initialData?: Partial<AdminCatDetail>;
-  onSubmit: (payload: CreateAdminCatPayload) => Promise<void>;
+  onSubmit: (payload: CreateAdminCatPayload) => Promise<unknown>;
   submitting?: boolean;
   serverError?: string | null;
 };
@@ -25,12 +40,12 @@ export function CatForm({ mode, initialData, onSubmit, submitting, serverError }
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerResults, setCustomerResults] = useState<CustomerSearch[]>([]);
   const [searching, setSearching] = useState(false);
-  const [values, setValues] = useState(() => ({
+  const [values, setValues] = useState<CatFormState>(() => ({
     customerId: initialData?.owner?.id ?? "",
     customerLabel: initialData?.owner?.name ?? initialData?.owner?.email ?? "",
     name: initialData?.name ?? "",
     breed: initialData?.breed ?? "",
-    gender: initialData?.gender ?? "UNKNOWN",
+    gender: (initialData?.gender as CatGender | undefined) ?? "UNKNOWN",
     birthDate: initialData?.birthDate ? initialData.birthDate.slice(0, 10) : "",
     isNeutered: initialData?.isNeutered ?? false,
     weightKg: initialData?.weightKg ? String(initialData.weightKg) : "",
@@ -186,7 +201,9 @@ export function CatForm({ mode, initialData, onSubmit, submitting, serverError }
           <label className="text-sm font-semibold text-[var(--admin-text-strong)]">Cinsiyet</label>
           <select
             value={values.gender}
-            onChange={(e) => setValues((prev) => ({ ...prev, gender: e.target.value }))}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, gender: e.target.value as CatGender }))
+            }
             className="w-full rounded-2xl border bg-[var(--admin-surface-alt)] px-4 py-3 text-sm font-semibold text-[var(--admin-text-strong)] admin-border focus:border-peach-300 focus:outline-none focus:ring-2 focus:ring-peach-100"
           >
             <option value="UNKNOWN">Belirsiz</option>

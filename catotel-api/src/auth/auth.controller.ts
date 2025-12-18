@@ -25,6 +25,10 @@ import { Public } from 'src/common/decorators/public.decorator';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { PasswordResetService } from './password-reset/password-reset.service';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -56,7 +60,9 @@ export class AuthController {
   async refresh(@Body() body: RefreshTokenDto) {
     const { refresh_token } = body;
     if (!refresh_token) {
-      throw new UnauthorizedException('Missing credentials');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_MISSING_CREDENTIALS),
+      );
     }
     return this.authService.refreshToken(refresh_token);
   }
@@ -74,7 +80,9 @@ export class AuthController {
   async logout(@Body() body: RefreshTokenDto) {
     const { refresh_token } = body;
     if (!refresh_token) {
-      throw new UnauthorizedException('Missing credentials');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_MISSING_CREDENTIALS),
+      );
     }
     return this.authService.logout(refresh_token);
   }
@@ -90,7 +98,9 @@ export class AuthController {
   @Post('logout-all')
   async logoutAll(@Req() req: Request) {
     if (!req.user?.sub) {
-      throw new UnauthorizedException('User not found in request');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_USER_NOT_IN_REQUEST),
+      );
     }
     return this.authService.logoutAll(req.user.sub);
   }

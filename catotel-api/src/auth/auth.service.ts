@@ -14,11 +14,17 @@ import { JwtPayload } from 'src/types/jwt-payload';
 import { AuthTokensService } from './tokens/token.service';
 import { UserService } from 'src/user/user.service';
 import { EnvVars } from 'src/config/config.schema';
+import { StructuredLogger } from 'src/common/logger/structured-logger';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class AuthService {
   private readonly maxSessionsPerUser: number;
   private readonly refreshSaltRounds = 12;
+  private readonly logger = new StructuredLogger(AuthService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -41,12 +47,16 @@ export class AuthService {
   ) {
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_INVALID_CREDENTIALS),
+      );
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_INVALID_CREDENTIALS),
+      );
     }
 
     const payload = { sub: user.id, email: user.email, role: user.role };
@@ -78,14 +88,18 @@ export class AuthService {
   async refreshToken(rawRefreshToken: string) {
     const payload = this.validateRefreshToken(rawRefreshToken);
     if (!payload.jti) {
-      throw new ForbiddenException('Refresh token missing jti');
+      throw new ForbiddenException(
+        localizedError(ERROR_CODES.AUTH_REFRESH_TOKEN_MISSING_JTI),
+      );
     }
     const now = new Date();
     const session = await this.getSessionByJti(payload.sub, payload.jti);
 
     const reuseDetected = async (): Promise<never> => {
       await this.revokeAllSessionsForUser(payload.sub);
-      throw new ForbiddenException('Refresh token reuse detected');
+      throw new ForbiddenException(
+        localizedError(ERROR_CODES.AUTH_REFRESH_TOKEN_REUSE),
+      );
     };
 
     if (!session || session.userId !== payload.sub) {
@@ -118,12 +132,14 @@ export class AuthService {
   async logout(rawRefreshToken: string) {
     const payload = this.validateRefreshToken(rawRefreshToken);
     if (!payload.jti) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_INVALID_REFRESH_TOKEN),
+      );
     }
     const session = await this.getSessionByJti(payload.sub, payload.jti);
     if (!session || session.isRevoked) {
       throw new UnauthorizedException(
-        'Session not found or already logged out',
+        localizedError(ERROR_CODES.AUTH_SESSION_NOT_FOUND),
       );
     }
 
@@ -161,7 +177,9 @@ export class AuthService {
   @Cron(CronExpression.EVERY_12_HOURS)
   async handleSessionCleanup() {
     await this.cleanupExpiredSessions();
-    console.log('[CRON] Expired sessions cleaned up.');
+    this.logger.log('Expired sessions cleaned up', {
+      source: 'session-cleanup-cron',
+    });
   }
 
   private async revokeAllSessionsForUser(userId: string) {
@@ -201,7 +219,9 @@ export class AuthService {
     });
 
     if (!session || session.userId !== userId) {
-      throw new UnauthorizedException('Cannot revoke this session');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_CANNOT_REVOKE_SESSION),
+      );
     }
 
     await this.prisma.session.update({
@@ -235,7 +255,9 @@ export class AuthService {
       this.tokens.verifyRefreshToken(params.refreshToken).jti ??
       null;
     if (!jti) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_INVALID_REFRESH_TOKEN),
+      );
     }
     await this.prisma.$transaction(async (tx) => {
       const activeSessions = await tx.session.findMany({
@@ -295,7 +317,9 @@ export class AuthService {
     payload: JwtPayload,
   ) {
     if (!payload.jti) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_INVALID_REFRESH_TOKEN),
+      );
     }
     const hashed = await this.hashToken(newRefreshToken);
     await this.prisma.session.update({
@@ -319,7 +343,9 @@ export class AuthService {
 
   private getExpirationDate(payload: JwtPayload) {
     if (!payload.exp) {
-      throw new UnauthorizedException('Invalid token payload');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_INVALID_TOKEN_PAYLOAD),
+      );
     }
     return new Date(payload.exp * 1000);
   }
@@ -328,7 +354,9 @@ export class AuthService {
     try {
       return this.tokens.verifyRefreshToken(rawRefreshToken);
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_INVALID_REFRESH_TOKEN),
+      );
     }
   }
 

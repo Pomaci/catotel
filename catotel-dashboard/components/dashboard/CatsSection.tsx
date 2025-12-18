@@ -9,6 +9,7 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Badge } from "@/components/ui/Badge";
 import { formatDate } from "@/lib/utils/format";
+import type { UpdateCatPayload } from "@/lib/api/payloads";
 
 const catSchema = z.object({
   name: z.string().min(2).max(50),
@@ -21,10 +22,13 @@ const catSchema = z.object({
     .string()
     .optional()
     .or(z.literal(""))
-    .transform((value) => (value ? Number(value) : undefined)),
+    .refine((value) => value === "" || value === undefined || !Number.isNaN(Number(value)), {
+      message: "Geçerli bir sayı girin",
+    }),
 });
 
 type CatFormValues = z.infer<typeof catSchema>;
+type NormalizedCatPayload = Omit<CatFormValues, "weightKg"> & { weightKg?: number };
 
 export function CatsSection({
   cats,
@@ -32,8 +36,8 @@ export function CatsSection({
   onUpdate,
 }: {
   cats: Cat[] | undefined;
-  onCreate(values: CatFormValues): Promise<void>;
-  onUpdate(id: string, values: Record<string, unknown>): Promise<void>;
+  onCreate(values: NormalizedCatPayload): Promise<void>;
+  onUpdate(id: string, values: UpdateCatPayload): Promise<void>;
 }) {
   const {
     register,
@@ -49,7 +53,7 @@ export function CatsSection({
       birthDate: "",
       dietaryNotes: "",
       medicalNotes: "",
-      weightKg: undefined,
+      weightKg: "",
     },
   });
 
@@ -83,14 +87,18 @@ export function CatsSection({
           ))}
         </div>
         <div className="rounded-3xl border border-sand-200 bg-white/90 p-5 shadow-soft">
-          <h3 className="text-lg font-semibold text-cocoa-700">Yeni kedi</h3>
-          <form
-            className="mt-4 space-y-3"
-            onSubmit={handleSubmit(async (values) => {
-              await onCreate(values);
-              reset();
-            })}
-          >
+            <h3 className="text-lg font-semibold text-cocoa-700">Yeni kedi</h3>
+            <form
+              className="mt-4 space-y-3"
+              onSubmit={handleSubmit(async (values) => {
+                const payload: NormalizedCatPayload = {
+                  ...values,
+                  weightKg: values.weightKg ? Number(values.weightKg) : undefined,
+                };
+                await onCreate(payload);
+                reset();
+              })}
+            >
             <Input label="İsim" placeholder="Mila" {...register("name")} />
             <Input label="Irk" placeholder="Van kedisi" {...register("breed")} />
             <label className="text-xs uppercase tracking-[0.3em] text-slate-400">
@@ -137,7 +145,7 @@ function CatCard({
   onUpdate,
 }: {
   cat: Cat;
-  onUpdate(id: string, payload: Record<string, unknown>): Promise<void>;
+  onUpdate(id: string, payload: UpdateCatPayload): Promise<void>;
 }) {
   const [notes, setNotes] = useState(cat.medicalNotes ?? "");
   const [saving, setSaving] = useState(false);
@@ -202,4 +210,3 @@ function CatCard({
     </div>
   );
 }
-

@@ -1,4 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
+import {
+  localizedError,
+  ERROR_CODES,
+} from './errors/localized-error.util';
 
 const HOTEL_DAY_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MS_IN_DAY = 86_400_000;
@@ -22,7 +26,11 @@ function extractDateParts(value: string) {
 
 export function parseHotelDayInput(value: string, fieldName: string) {
   if (!value || typeof value !== 'string') {
-    throw new BadRequestException(`${fieldName} is required`);
+    throw new BadRequestException(
+      localizedError(ERROR_CODES.VALIDATION_FIELD_REQUIRED, {
+        field: fieldName,
+      }),
+    );
   }
   const parts = extractDateParts(value);
   if (parts) {
@@ -31,7 +39,9 @@ export function parseHotelDayInput(value: string, fieldName: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     throw new BadRequestException(
-      `${fieldName} must be a valid ISO-8601 date string`,
+      localizedError(ERROR_CODES.VALIDATION_INVALID_DATE, {
+        field: fieldName,
+      }),
     );
   }
   return toUtcDate(

@@ -2,6 +2,16 @@ import { clientRequest } from '@/lib/http-client';
 import type { AdminUser, CreateManagedUserInput } from '@/types/user';
 import type { UserRole } from '@/types/enums';
 import type { AddonService, Cat, Room, RoomType } from '@/types/hotel';
+import type {
+  CreateAdminCatPayload,
+  CreateCustomerCatPayload,
+  CreateRoomPayload,
+  CreateRoomTypePayload,
+  UpdateCatPayload,
+  UpdateRoomPayload,
+  UpdateRoomTypePayload,
+} from '@/lib/api/payloads';
+export type { CreateAdminCatPayload } from '@/lib/api/payloads';
 
 export type AdminCatOwner = {
   id: string;
@@ -80,19 +90,6 @@ export type AdminAddonService = AddonService & {
   updatedAt: string;
 };
 
-export type CreateAdminCatPayload = {
-  customerId: string;
-  name: string;
-  breed?: string | null;
-  gender?: string | null;
-  birthDate?: string | null;
-  isNeutered?: boolean;
-  weightKg?: number | string | null;
-  dietaryNotes?: string | null;
-  medicalNotes?: string | null;
-  photoUrl?: string | null;
-};
-
 export const AdminApi = {
   listUsers: () => clientRequest<AdminUser[]>('/api/users'),
   createUser: (payload: CreateManagedUserInput) =>
@@ -124,7 +121,7 @@ export const AdminApi = {
     ),
   searchCustomers: (query: string) =>
     clientRequest('/api/users/customers/search?q=' + encodeURIComponent(query)),
-  createRoom: (payload: Record<string, unknown>) =>
+  createRoom: (payload: CreateRoomPayload) =>
     clientRequest(
       '/api/rooms',
       {
@@ -133,7 +130,7 @@ export const AdminApi = {
       },
       { csrf: true },
     ),
-  updateRoom: (id: string, payload: Record<string, unknown>) =>
+  updateRoom: (id: string, payload: UpdateRoomPayload) =>
     clientRequest(
       `/api/rooms/${id}`,
       {
@@ -167,7 +164,7 @@ export const AdminApi = {
         },
       },
     ),
-  createRoomType: (payload: Record<string, unknown>) =>
+  createRoomType: (payload: CreateRoomTypePayload) =>
     clientRequest(
       '/api/room-types',
       {
@@ -176,7 +173,7 @@ export const AdminApi = {
       },
       { csrf: true },
     ),
-  updateRoomType: (id: string, payload: Record<string, unknown>) =>
+  updateRoomType: (id: string, payload: UpdateRoomTypePayload) =>
     clientRequest(
       `/api/room-types/${id}`,
       {
@@ -198,7 +195,7 @@ export const AdminApi = {
     ),
   listCustomerCats: (customerId: string) =>
     clientRequest(`/api/admin/customers/${customerId}/cats`),
-  createCustomerCat: (customerId: string, payload: Record<string, unknown>) =>
+  createCustomerCat: (customerId: string, payload: CreateCustomerCatPayload) =>
     clientRequest(
       `/api/admin/customers/${customerId}/cats`,
       {
@@ -260,7 +257,7 @@ export const AdminApi = {
       },
       { csrf: true },
     ),
-  updateCat: (id: string, payload: Partial<CreateAdminCatPayload>) =>
+  updateCat: (id: string, payload: UpdateCatPayload) =>
     clientRequest<AdminCatDetail>(
       `/api/admin/cats/${id}`,
       {

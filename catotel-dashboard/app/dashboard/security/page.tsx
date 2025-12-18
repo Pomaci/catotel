@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminApi, type PricingSettingsResponse, type AdminAddonService } from "@/lib/api/admin";
+import type { UpdateRoomTypePayload } from "@/lib/api/payloads";
 import type { RoomType } from "@/types/hotel";
 
 type SettingsTab = "general" | "pricing" | "notifications" | "roles";
@@ -307,7 +308,7 @@ export default function SettingsPage() {
   const [recentlySavedRoomId, setRecentlySavedRoomId] = useState<string | null>(null);
   const [roomPricingError, setRoomPricingError] = useState<string | null>(null);
   const updateRoomType = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateRoomTypePayload }) =>
       AdminApi.updateRoomType(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings-room-types"] });

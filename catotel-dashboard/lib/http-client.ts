@@ -1,4 +1,8 @@
 const CSRF_COOKIE = 'catotel_csrf';
+const UNAUTHORIZED_THRESHOLD = 2;
+
+let unauthorizedRequestCount = 0;
+let forcedLogoutPromise: Promise<void> | null = null;
 
 function readClientCsrfToken() {
   if (typeof document === 'undefined') {
@@ -8,6 +12,83 @@ function readClientCsrfToken() {
     new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`),
   );
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function normalizePath(path: string) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    try {
+      return new URL(path).pathname;
+    } catch {
+      return path;
+    }
+  }
+  return path;
+}
+
+function shouldTrackUnauthorized(path: string) {
+  const normalized = normalizePath(path);
+  return normalized.startsWith('/api/') && !normalized.startsWith('/api/auth/');
+}
+
+async function ensureCsrfTokenForLogout() {
+  const existing = readClientCsrfToken();
+  if (existing) {
+    return existing;
+  }
+  try {
+    await fetch('/api/auth/csrf', { credentials: 'include' });
+  } catch (err) {
+    console.error('Failed to renew CSRF token before logout', err);
+    return null;
+  }
+  return readClientCsrfToken();
+}
+
+async function attemptSessionCleanup() {
+  const csrfToken = await ensureCsrfTokenForLogout();
+  if (!csrfToken) {
+    return;
+  }
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
+    });
+  } catch (err) {
+    console.error('Failed to clear auth cookies after repeated 401', err);
+  }
+}
+
+function redirectToLogin() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const loginUrl = new URL('/auth/login', window.location.origin);
+  const from = `${window.location.pathname || ''}${window.location.search || ''}`;
+  if (window.location.pathname && window.location.pathname !== '/auth/login') {
+    loginUrl.searchParams.set('from', from || '/');
+  }
+  window.location.assign(loginUrl.toString());
+}
+
+async function forceLogoutAfterRepeatedUnauthorized() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (!forcedLogoutPromise) {
+    forcedLogoutPromise = (async () => {
+      await attemptSessionCleanup();
+      redirectToLogin();
+    })().finally(() => {
+      forcedLogoutPromise = null;
+    });
+  }
+  await forcedLogoutPromise;
 }
 
 async function parseBody(response: Response) {
@@ -42,6 +123,8 @@ export async function clientRequest<T>(
   options?: { csrf?: boolean; retry?: boolean },
 ) {
   const { query, ...restInit } = init;
+  const normalizedPath = normalizePath(path);
+  const isRefreshRequest = normalizedPath === '/api/auth/refresh';
   const headers = new Headers(restInit.headers || {});
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -61,13 +144,26 @@ export async function clientRequest<T>(
   });
   if (
     response.status === 401 &&
-    options?.retry !== false &&
-    !path.endsWith('/api/auth/refresh')
+    !isRefreshRequest
   ) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      return clientRequest<T>(path, init, { ...options, retry: false });
+    if (options?.retry !== false) {
+      const refreshed = await tryRefresh();
+      if (refreshed) {
+        unauthorizedRequestCount = 0;
+        return clientRequest<T>(path, init, { ...options, retry: false });
+      }
     }
+    if (shouldTrackUnauthorized(normalizedPath)) {
+      unauthorizedRequestCount += 1;
+      if (unauthorizedRequestCount >= UNAUTHORIZED_THRESHOLD) {
+        unauthorizedRequestCount = 0;
+        await forceLogoutAfterRepeatedUnauthorized();
+      }
+    } else {
+      unauthorizedRequestCount = 0;
+    }
+  } else if (response.status !== 401) {
+    unauthorizedRequestCount = 0;
   }
 
   if (!response.ok) {

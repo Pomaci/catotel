@@ -123,4 +123,4 @@ The repository includes lightweight Jest specs to ensure modules can be instanti
 
 ## License
 
-This project inherits the NestJS MIT license. See `LICENSE` for details.
+This service is distributed under the MIT License. See `../LICENSE` for details.

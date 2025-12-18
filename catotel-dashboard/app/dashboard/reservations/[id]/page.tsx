@@ -37,6 +37,7 @@ import type {
   Room,
 } from "@/types/hotel";
 import { ReservationStatus } from "@/types/enums";
+import type { ReservationUpdatePayload } from "@/lib/api/payloads";
 
 export default function ReservationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -68,7 +69,7 @@ export default function ReservationDetailPage() {
   } = useReservations(ReservationStatus.CHECKED_IN, Boolean(reservationId));
 
   const updateMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
+    mutationFn: (payload: ReservationUpdatePayload) =>
       HotelApi.updateReservation(reservationId!, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({

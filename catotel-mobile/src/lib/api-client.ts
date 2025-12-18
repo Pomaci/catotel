@@ -1,6 +1,13 @@
-import { API_BASE } from "./env";
-import type { AuthTokens } from "@/types/auth";
-import { clearTokens } from "@/lib/storage";
+﻿import {
+  ApiError,
+  OpenAPI as GeneratedOpenAPI,
+  request as generatedRequest,
+  type ApiRequestOptions,
+  type OpenAPIConfig,
+} from '@catotel/api-client';
+import type { AuthTokens } from '@/types/auth';
+import { API_BASE } from './env';
+import { clearTokens } from '@/lib/storage';
 
 let currentAccessToken: string | null = null;
 let currentRefreshToken: string | null = null;
@@ -9,6 +16,18 @@ let tokensUpdatedListener:
   | ((tokens: AuthTokens | null) => Promise<void> | void)
   | null = null;
 let consecutiveAuthFailures = 0;
+
+const baseConfig: OpenAPIConfig = {
+  ...GeneratedOpenAPI,
+  BASE: API_BASE,
+  WITH_CREDENTIALS: false,
+  CREDENTIALS: 'omit',
+};
+
+type RequestConfig = {
+  auth?: boolean;
+  retry?: boolean;
+};
 
 export function setApiAccessToken(token: string | null) {
   currentAccessToken = token;
@@ -38,77 +57,46 @@ export function getApiAccessToken() {
   return currentAccessToken;
 }
 
-type RequestOptions = {
-  method?: string;
-  body?: Record<string, unknown>;
-  headers?: Record<string, string>;
-  auth?: boolean;
-};
-
 export async function apiRequest<T>(
-  path: string,
-  { method, body, headers, auth = true }: RequestOptions = {},
+  options: ApiRequestOptions,
+  config: RequestConfig = {},
 ): Promise<T> {
-  const resolvedMethod = method ?? (body ? "POST" : "GET");
-
-  const buildHeaders = () => {
-    const requestHeaders: Record<string, string> = {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...headers,
-    };
-    if (auth && currentAccessToken) {
-      requestHeaders.Authorization = `Bearer ${currentAccessToken}`;
-    }
-    return requestHeaders;
-  };
-
-  const doFetch = async () => {
-    const response = await fetch(`${API_BASE}${path}`, {
-      method: resolvedMethod,
-      headers: buildHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    const text = await response.text();
-    const data = text ? (JSON.parse(text) as unknown) : null;
-    return { response, data };
-  };
-
-  let { response, data } = await doFetch();
-
-  const refreshed =
-    response.status === 401 &&
-    auth &&
-    !path.includes("/auth/refresh") &&
-    (await refreshTokens());
-
-  if (refreshed) {
-    ({ response, data } = await doFetch());
-  }
-
-  if (response.status === 401 && !refreshed) {
-    consecutiveAuthFailures += 1;
-    if (consecutiveAuthFailures >= 2) {
-      await handleRefreshFailure();
-    }
-  } else {
+  const { auth = true, retry = true } = config;
+  try {
+    const result = await executeRequest<T>(options, auth);
     consecutiveAuthFailures = 0;
+    return result;
+  } catch (error) {
+    if (auth && error instanceof ApiError && error.status === 401) {
+      const refreshed = retry && (await refreshTokens());
+      if (refreshed) {
+        consecutiveAuthFailures = 0;
+        return apiRequest<T>(options, { auth, retry: false });
+      }
+      consecutiveAuthFailures += 1;
+      if (consecutiveAuthFailures >= 2) {
+        await handleRefreshFailure();
+      }
+    }
+    throw normalizeError(error);
   }
+}
 
-  if (!response.ok || response.status === 401) {
-    const message =
-      (data &&
-        typeof (data as any).message === "string" &&
-        (data as any).message) ||
-      (data &&
-        typeof (data as any).error === "string" &&
-        (data as any).error) ||
-      `HTTP ${response.status}`;
-    throw new Error(message);
+async function executeRequest<T>(
+  options: ApiRequestOptions,
+  auth: boolean,
+): Promise<T> {
+  const config: OpenAPIConfig = {
+    ...baseConfig,
+    TOKEN: auth
+      ? async () => (currentAccessToken ? currentAccessToken : '')
+      : undefined,
+  };
+  try {
+    return await generatedRequest<T>(config, options);
+  } catch (err) {
+    throw normalizeError(err);
   }
-
-  return data as T;
 }
 
 async function refreshTokens(): Promise<AuthTokens | null> {
@@ -119,35 +107,32 @@ async function refreshTokens(): Promise<AuthTokens | null> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
-        const response = await fetch(`${API_BASE}/auth/refresh`, {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
+        const tokens = await executeRequest<AuthTokens>(
+          {
+            method: 'POST',
+            url: '/auth/refresh',
+            body: { refresh_token: currentRefreshToken },
+            mediaType: 'application/json',
           },
-          body: JSON.stringify({ refresh_token: currentRefreshToken }),
-        });
-
-        const text = await response.text();
-        const data = text ? (JSON.parse(text) as unknown) : null;
-        if (!response.ok || !data) {
-          return null;
-        }
-
-        const tokens = data as AuthTokens;
+          false,
+        );
         setApiTokens(tokens.access_token, tokens.refresh_token);
         await notifyTokens(tokens);
         return tokens;
-      } catch {
+      } catch (error) {
         await handleRefreshFailure();
-        return null;
+        throw error;
       } finally {
         refreshInFlight = null;
       }
     })();
   }
 
-  return refreshInFlight;
+  try {
+    return await refreshInFlight;
+  } catch {
+    return null;
+  }
 }
 
 async function handleRefreshFailure() {
@@ -156,3 +141,19 @@ async function handleRefreshFailure() {
   await clearTokens();
   await notifyTokens(null);
 }
+
+function normalizeError(error: unknown) {
+  if (error instanceof ApiError) {
+    const body = error.body as { message?: string; error?: string };
+    const message =
+      (body && typeof body.message === 'string' && body.message) ||
+      (body && typeof body.error === 'string' && body.error) ||
+      `HTTP ${error.status}`;
+    return new Error(message);
+  }
+  if (error instanceof Error) {
+    return error;
+  }
+  return new Error('Beklenmeyen bir ağ hatası oluştu.');
+}
+

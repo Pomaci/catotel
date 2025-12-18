@@ -84,11 +84,17 @@ export default function DashboardScreen() {
     );
   }
 
+  const userNameValue = user?.name as unknown;
+  const resolvedUserName =
+    typeof userNameValue === "string" && userNameValue.trim().length > 0
+      ? userNameValue
+      : null;
+  const resolvedProfileName =
+    typeof profile?.user?.name === "string" && profile.user.name.trim().length > 0
+      ? profile.user.name
+      : null;
   const displayName =
-    (user?.name && user.name.length > 0 && user.name) ||
-    profile?.user.name ||
-    user?.email ||
-    "Yonetici";
+    resolvedUserName ?? resolvedProfileName ?? user?.email ?? "Yonetici";
 
   return (
     <Screen>

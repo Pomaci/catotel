@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpDown,
   Check,
@@ -86,12 +86,12 @@ export default function CustomersPage() {
       AdminApi.listCustomers({
         page,
         pageSize: perPage,
-        search: searchTerm || undefined,
+        search: searchTerm.trim() || undefined,
         status: statusFilter === "ALL" ? undefined : statusFilter,
         sortBy: sort.key,
         sortDir: sort.direction,
-      }),
-    keepPreviousData: true,
+      }) as Promise<CustomerResponse>,
+    placeholderData: keepPreviousData,
   });
 
   const deleteMutation = useMutation({
@@ -147,14 +147,14 @@ export default function CustomersPage() {
     setExporting(true);
     try {
       const exportPageSize = Math.min(total || perPage, 1000);
-      const exportData = await AdminApi.listCustomers({
+      const exportData = (await AdminApi.listCustomers({
         page: 1,
         pageSize: exportPageSize,
-        search: searchTerm || undefined,
+        search: searchTerm.trim() || undefined,
         status: statusFilter === "ALL" ? undefined : statusFilter,
         sortBy: sort.key,
         sortDir: sort.direction,
-      });
+      })) as CustomerResponse;
       const rows = exportData.items.map((c) => [
         c.name ?? "İsimsiz",
         c.email,

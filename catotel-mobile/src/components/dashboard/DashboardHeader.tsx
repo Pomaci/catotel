@@ -20,14 +20,17 @@ export function DashboardHeader({
   onRefreshData,
 }: Props) {
   const { user, logout, error } = useAuth();
+  const rawUserName = user?.name as unknown;
+  const resolvedUserName =
+    typeof rawUserName === "string" && rawUserName.trim().length > 0
+      ? rawUserName
+      : undefined;
   const displayName =
-    (typeof user?.name === "string" && user.name.length > 0
-      ? user.name
-      : user?.email) ?? "Miaow yoneticisi";
+    resolvedUserName ?? user?.email ?? "Miaow yoneticisi";
 
   const stats = useMemo(() => {
-    const catCount = profile?.cats.length ?? 0;
-    const reservationCount = profile?.reservations.length ?? 0;
+    const catCount = profile?.cats?.length ?? 0;
+    const reservationCount = profile?.reservations?.length ?? 0;
     const latestTotal = latestReservation
       ? formatCurrency(latestReservation.totalPrice)
       : "-";
@@ -36,7 +39,7 @@ export function DashboardHeader({
       { label: "Rezervasyon", value: `${reservationCount}`, emoji: "📅" },
       { label: "Son odeme", value: latestTotal, emoji: "💳" },
     ];
-  }, [latestReservation, profile?.cats.length, profile?.reservations.length]);
+  }, [latestReservation, profile?.cats?.length, profile?.reservations?.length]);
 
   return (
     <Card padding={spacing.xl}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type SVGProps } from "react";
+import { forwardRef, useMemo, type SVGProps } from "react";
 import clsx from "clsx";
 import {
   AlertTriangle,
@@ -763,13 +763,25 @@ function formatTimeLabel(value: string) {
   return parsed.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function BroomIcon(props: SVGProps<SVGSVGElement>) {
+const BroomIcon = forwardRef<SVGSVGElement, SVGProps<SVGSVGElement>>(function BroomIcon(
+  props,
+  ref,
+) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg
+      ref={ref}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
       <path d="M2 22h20" />
       <path d="M5 21v-5l7-7 7 7v5" />
       <path d="M9 11l6 6" />
       <path d="M12 8l5-5" />
     </svg>
   );
-}
+});

@@ -1,13 +1,15 @@
 {
   "name": "catotel-workspace",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "workspaces": [
     "catotel-api",
     "catotel-dashboard",
     "catotel-mobile",
-    "catotel-clients/api-client"
+    "catotel-clients/api-client",
+    "catotel-clients/i18n"
   ],
   "scripts": {
     "dev": "concurrently -n api,dashboard,mobile -c green,cyan,magenta \"pnpm --filter catotel-api run dev\" \"pnpm --filter catotel-dashboard run dev\" \"pnpm --filter catotel-mobile run dev\"",

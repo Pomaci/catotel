@@ -18,6 +18,10 @@ import {
   parseHotelDayInput,
   startOfUtcDay,
 } from 'src/common/hotel-day.util';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 type NormalizedMultiCatTier = { catCount: number; discountPercent: number };
 type NormalizedSharedRoomTier = {
@@ -33,6 +37,43 @@ type NormalizedPricingSettings = {
   sharedRoomDiscounts: NormalizedSharedRoomTier[];
   longStayDiscountEnabled: boolean;
   longStayDiscounts: NormalizedLongStayTier[];
+};
+
+type LegacyRoomSelectionPayload = { roomId?: string | null };
+
+type ReservationStatusPayload = { status?: ReservationStatus | null };
+
+const hasLegacyRoomSelection = (
+  payload: unknown,
+): payload is LegacyRoomSelectionPayload => {
+  return typeof payload === 'object' && payload !== null && 'roomId' in payload;
+};
+
+const hasReservationStatusPayload = (
+  payload: unknown,
+): payload is ReservationStatusPayload => {
+  return typeof payload === 'object' && payload !== null && 'status' in payload;
+};
+
+const getLegacyRoomTypeId = (payload: unknown): string | undefined => {
+  if (!hasLegacyRoomSelection(payload)) {
+    return undefined;
+  }
+  const value = payload.roomId;
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const getStatusFromPayload = (
+  payload: unknown,
+): ReservationStatus | undefined => {
+  if (!hasReservationStatusPayload(payload)) {
+    return undefined;
+  }
+  return payload.status ?? undefined;
 };
 
 @Injectable()
@@ -81,10 +122,14 @@ export class ReservationsService {
       include: this.reservationIncludeWithPayments,
     });
     if (!reservation) {
-      throw new NotFoundException('Reservation not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.RESERVATION_NOT_FOUND),
+      );
     }
     if (role === UserRole.CUSTOMER && reservation.customer.userId !== userId) {
-      throw new ForbiddenException('You cannot view this reservation');
+      throw new ForbiddenException(
+        localizedError(ERROR_CODES.RESERVATION_FORBIDDEN_VIEW),
+      );
     }
     return reservation;
   }
@@ -95,37 +140,47 @@ export class ReservationsService {
       role,
       dto.customerId,
     );
-    const roomTypeId = dto.roomTypeId ?? (dto as any).roomId;
+    const roomTypeId = dto.roomTypeId ?? getLegacyRoomTypeId(dto);
     if (!roomTypeId) {
-      throw new BadRequestException('roomTypeId is required');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_ROOM_TYPE_REQUIRED),
+      );
     }
 
     const checkIn = parseHotelDayInput(dto.checkIn, 'checkIn');
     const checkOut = parseHotelDayInput(dto.checkOut, 'checkOut');
     if (checkIn >= checkOut) {
-      throw new BadRequestException('Check-out must be after check-in');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_INVALID_DATE_RANGE),
+      );
     }
     const isCheckInDateFromPayload = 'checkIn' in dto;
-    const isStatusCheckIn =
-      'status' in dto && (dto as any).status === ReservationStatus.CHECKED_IN;
+    const statusFromPayload = getStatusFromPayload(dto);
+    const isStatusCheckIn = statusFromPayload === ReservationStatus.CHECKED_IN;
     if (
       isCheckInDateFromPayload &&
       !isStatusCheckIn &&
       checkIn < startOfUtcDay(new Date())
     ) {
-      throw new BadRequestException('Check-in cannot be in the past');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_CHECKIN_IN_PAST),
+      );
     }
 
     const cats = await this.prisma.cat.findMany({
       where: { id: { in: dto.catIds } },
     });
     if (cats.length !== dto.catIds.length) {
-      throw new BadRequestException('Some cats were not found');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_CATS_NOT_FOUND),
+      );
     }
     for (const cat of cats) {
       if (cat.customerId !== targetCustomer.id) {
         throw new ForbiddenException(
-          `Cat ${cat.name} does not belong to selected customer`,
+          localizedError(ERROR_CODES.RESERVATION_CAT_NOT_OWNED, {
+            catName: cat.name,
+          }),
         );
       }
     }
@@ -135,16 +190,20 @@ export class ReservationsService {
       where: { id: roomTypeId },
     });
     if (!roomType || !roomType.isActive) {
-      throw new BadRequestException('Room type not available');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_ROOM_TYPE_NOT_AVAILABLE),
+      );
     }
     if (roomType.capacity < cats.length) {
-      throw new BadRequestException('Room capacity exceeded');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_ROOM_CAPACITY_EXCEEDED),
+      );
     }
 
     const activeRoomCount = await this.getActiveRoomCount(roomType.id);
     if (activeRoomCount <= 0) {
       throw new BadRequestException(
-        'No active rooms exist for the selected room type',
+        localizedError(ERROR_CODES.RESERVATION_NO_ACTIVE_ROOMS),
       );
     }
 
@@ -189,78 +248,99 @@ export class ReservationsService {
       }
     }
 
-    const code = `CAT-${randomBytes(3).toString('hex').toUpperCase()}`;
+    const persistReservation = (code: string) =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const freshRoomType = await tx.roomType.findUnique({
+            where: { id: roomType.id },
+          });
+          if (!freshRoomType || !freshRoomType.isActive) {
+            throw new BadRequestException(
+              localizedError(ERROR_CODES.RESERVATION_ROOM_TYPE_NOT_AVAILABLE),
+            );
+          }
+          if (freshRoomType.capacity < cats.length) {
+            throw new BadRequestException(
+              localizedError(ERROR_CODES.RESERVATION_ROOM_CAPACITY_EXCEEDED),
+            );
+          }
 
-    return this.prisma.$transaction(
-      async (tx) => {
-        const freshRoomType = await tx.roomType.findUnique({
-          where: { id: roomType.id },
-        });
-        if (!freshRoomType || !freshRoomType.isActive) {
-          throw new BadRequestException('Room type not available');
-        }
-        if (freshRoomType.capacity < cats.length) {
-          throw new BadRequestException('Room capacity exceeded');
-        }
-
-        await this.assertRoomTypeAvailability(
-          freshRoomType,
-          checkIn,
-          checkOut,
-          requiredSlots,
-          undefined,
-          tx,
-        );
-        const totalPrice = this.calculateTotalPrice(
-          freshRoomType.nightlyRate,
-          nights,
-          reservationServices,
-          {
-            capacity: freshRoomType.capacity,
-            catCount: cats.length,
-            allowRoomSharing,
-          },
-          normalizedPricing,
-        );
-
-        const created = await tx.reservation.create({
-          data: {
-            code,
-            customerId: targetCustomer.id,
-            roomTypeId: freshRoomType.id,
+          await this.assertRoomTypeAvailability(
+            freshRoomType,
             checkIn,
             checkOut,
-            totalPrice,
-            specialRequests: dto.specialRequests,
-            allowRoomSharing,
-            reservedSlots: requiredSlots,
-            cats: {
-              createMany: {
-                data: dto.catIds.map((catId) => ({ catId })),
-              },
+            requiredSlots,
+            undefined,
+            tx,
+          );
+          const totalPrice = this.calculateTotalPrice(
+            freshRoomType.nightlyRate,
+            nights,
+            reservationServices,
+            {
+              capacity: freshRoomType.capacity,
+              catCount: cats.length,
+              allowRoomSharing,
             },
-            services: reservationServices.length
-              ? {
-                  createMany: {
-                    data: reservationServices,
-                  },
-                }
-              : undefined,
-          },
-        });
+            normalizedPricing,
+          );
 
-        await this.roomAssignmentService.rebalanceRoomType(
-          freshRoomType.id,
-          tx,
-        );
+          const created = await tx.reservation.create({
+            data: {
+              code,
+              customerId: targetCustomer.id,
+              roomTypeId: freshRoomType.id,
+              checkIn,
+              checkOut,
+              totalPrice,
+              specialRequests: dto.specialRequests,
+              allowRoomSharing,
+              reservedSlots: requiredSlots,
+              cats: {
+                createMany: {
+                  data: dto.catIds.map((catId) => ({ catId })),
+                },
+              },
+              services: reservationServices.length
+                ? {
+                    createMany: {
+                      data: reservationServices,
+                    },
+                  }
+                : undefined,
+            },
+          });
 
-        return tx.reservation.findUniqueOrThrow({
-          where: { id: created.id },
-          include: this.reservationInclude,
-        });
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+          await this.roomAssignmentService.rebalanceRoomType(
+            freshRoomType.id,
+            tx,
+          );
+
+          return tx.reservation.findUniqueOrThrow({
+            where: { id: created.id },
+            include: this.reservationInclude,
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+
+    const maxCodeAttempts = 10;
+    for (let attempt = 0; attempt < maxCodeAttempts; attempt++) {
+      const code = this.generateReservationCode(attempt);
+      try {
+        return await persistReservation(code);
+      } catch (error) {
+        if (
+          this.isReservationCodeCollision(error) &&
+          attempt < maxCodeAttempts - 1
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new Error('Unable to generate unique reservation code');
   }
 
   private async resolveCustomer(
@@ -273,22 +353,58 @@ export class ReservationsService {
         where: { userId },
       });
       if (!customer) {
-        throw new BadRequestException('Customer profile not found');
+        throw new BadRequestException(
+          localizedError(ERROR_CODES.CUSTOMER_PROFILE_NOT_FOUND),
+        );
       }
       return customer;
     }
 
     if (!customerId) {
-      throw new BadRequestException('customerId is required for staff/admin');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_CUSTOMER_ID_REQUIRED),
+      );
     }
 
     const customer = await this.prisma.customerProfile.findUnique({
       where: { id: customerId },
     });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CUSTOMER_NOT_FOUND),
+      );
     }
     return customer;
+  }
+
+  private generateReservationCode(attempt: number) {
+    const baseBytes = 3;
+    const maxBytes = 8;
+    const byteLength = Math.min(
+      maxBytes,
+      baseBytes + Math.floor(attempt / 2),
+    );
+    // Expand the random space as we retry to keep collision probability negligible.
+    return `CAT-${randomBytes(byteLength).toString('hex').toUpperCase()}`;
+  }
+
+  private isReservationCodeCollision(error: unknown) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const target = error.meta?.target;
+      if (typeof target === 'string') {
+        return target.includes('Reservation_code');
+      }
+      if (Array.isArray(target)) {
+        return target.some(
+          (value) =>
+            typeof value === 'string' && value.includes('Reservation_code'),
+        );
+      }
+    }
+    return false;
   }
 
   async update(id: string, role: UserRole, dto: UpdateReservationDto) {
@@ -297,14 +413,18 @@ export class ReservationsService {
       include: { cats: true, roomType: true },
     });
     if (!existing) {
-      throw new NotFoundException('Reservation not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.RESERVATION_NOT_FOUND),
+      );
     }
     if (
       role !== UserRole.ADMIN &&
       role !== UserRole.MANAGER &&
       role !== UserRole.STAFF
     ) {
-      throw new ForbiddenException('Only staff can update reservations');
+      throw new ForbiddenException(
+        localizedError(ERROR_CODES.RESERVATION_UPDATE_FORBIDDEN),
+      );
     }
 
     const checkIn = dto.checkIn
@@ -314,7 +434,9 @@ export class ReservationsService {
       ? parseHotelDayInput(dto.checkOut, 'checkOut')
       : startOfUtcDay(existing.checkOut);
     if (checkIn >= checkOut) {
-      throw new BadRequestException('Check-out must be after check-in');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_INVALID_DATE_RANGE),
+      );
     }
     const isCheckInDateFromPayload = 'checkIn' in dto;
     const isStatusCheckIn = dto.status === ReservationStatus.CHECKED_IN;
@@ -327,31 +449,41 @@ export class ReservationsService {
       !isRevertingFromCheckIn &&
       checkIn < startOfUtcDay(new Date())
     ) {
-      throw new BadRequestException('Check-in cannot be in the past');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_CHECKIN_IN_PAST),
+      );
     }
 
-    const requestedRoomTypeId = dto.roomTypeId ?? (dto as any).roomId;
+    const requestedRoomTypeId = dto.roomTypeId ?? getLegacyRoomTypeId(dto);
     const roomTypeId = requestedRoomTypeId ?? existing.roomTypeId;
     const roomType = await this.prisma.roomType.findUnique({
       where: { id: roomTypeId },
     });
     if (!roomType || !roomType.isActive) {
-      throw new BadRequestException('Room type not available');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_ROOM_TYPE_NOT_AVAILABLE),
+      );
     }
 
     const catIds = dto.catIds ?? existing.cats.map((c) => c.catId);
     if (!catIds.length) {
-      throw new BadRequestException('At least one cat is required');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_MIN_CATS_REQUIRED),
+      );
     }
 
     const cats = await this.prisma.cat.findMany({
       where: { id: { in: catIds } },
     });
     if (cats.length !== catIds.length) {
-      throw new BadRequestException('Some cats were not found');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_CATS_NOT_FOUND),
+      );
     }
     if (roomType.capacity < cats.length) {
-      throw new BadRequestException('Room capacity exceeded');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.RESERVATION_ROOM_CAPACITY_EXCEEDED),
+      );
     }
     await this.ensureCatsAvailable(catIds, checkIn, checkOut, id);
     const allowRoomSharing =
@@ -435,10 +567,14 @@ export class ReservationsService {
           where: { id: roomType.id },
         });
         if (!freshRoomType || !freshRoomType.isActive) {
-          throw new BadRequestException('Room type not available');
+          throw new BadRequestException(
+            localizedError(ERROR_CODES.RESERVATION_ROOM_TYPE_NOT_AVAILABLE),
+          );
         }
         if (freshRoomType.capacity < cats.length) {
-          throw new BadRequestException('Room capacity exceeded');
+          throw new BadRequestException(
+            localizedError(ERROR_CODES.RESERVATION_ROOM_CAPACITY_EXCEEDED),
+          );
         }
         await this.assertRoomTypeAvailability(
           freshRoomType,
@@ -793,7 +929,7 @@ export class ReservationsService {
     const remaining = totalSlots - takenSlots;
     if (remaining < requiredSlots) {
       throw new BadRequestException(
-        'Room type not available for selected dates',
+        localizedError(ERROR_CODES.RESERVATION_ROOM_TYPE_UNAVAILABLE_DATES),
       );
     }
     return remaining;
@@ -829,7 +965,9 @@ export class ReservationsService {
         .filter(Boolean)
         .join(', ');
       throw new BadRequestException(
-        `Seçilen kediler için çakışan rezervasyon var: ${names || 'kedi'}`,
+        localizedError(ERROR_CODES.RESERVATION_CAT_CONFLICT, {
+          catNames: names || '-',
+        }),
       );
     }
   }

@@ -55,5 +55,9 @@ npm run build
 
 ## Dikkat edilmesi gerekenler
 - `.env`, `.env.*`, loglar, build klasorleri ve `catotel-infra-check/redisdata/` gitignore'a eklendi; sadece `.env.example` takipte kalir.
+- Lokal log/test artefaktlari ile scratch dosyalari icin standard surec `docs/dev-artifacts.md` dosyasinda belirlendi; loglar `logs/` altinda, gecici notlar `scratch/` altinda kalmali.
 - E2E senaryolari icin `.github/workflows/e2e.yml` dosyasi PostgreSQL servisi kurar, API'yi build eder ve dashboard Playwright testlerini calistirir. Opsiyonel Detox iOS isi `workflow_dispatch` ile tetiklenir.
 - Yerel Redis dump'lari (`catotel-infra-check/redisdata`) versiyon kontrolune girmeyecek; ihtiyac varsa ayri bir backup olarak saklayin.
+
+## Lisans
+Bu monorepo'daki tum paketler MIT Lisansi altinda yayinlanir. Ayrintilar icin `LICENSE` dosyasina bakin.

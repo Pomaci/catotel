@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -55,7 +55,7 @@ export default function CatsPage() {
   const { data, isLoading, isFetching, error } = useQuery<AdminCatListResponse>({
     queryKey: ["admin-cats", queryParams],
     queryFn: () => AdminApi.listCats(queryParams),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const cats = data?.items ?? [];

@@ -18,6 +18,10 @@ import {
   AdminCatListItemDto,
   AdminCatListResponseDto,
 } from './dto/admin-cat.dto';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class CustomersService {
@@ -40,7 +44,9 @@ export class CustomersService {
       },
     });
     if (!customer) {
-      throw new NotFoundException('Customer profile not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CUSTOMER_PROFILE_NOT_FOUND),
+      );
     }
     return customer;
   }
@@ -96,11 +102,15 @@ export class CustomersService {
   async updateCat(userId: string, catId: string, dto: UpdateCatDto) {
     const cat = await this.prisma.cat.findUnique({ where: { id: catId } });
     if (!cat) {
-      throw new NotFoundException('Cat not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CAT_NOT_FOUND),
+      );
     }
     const customer = await this.ensureCustomer(userId);
     if (cat.customerId !== customer.id) {
-      throw new ForbiddenException('This cat does not belong to you');
+      throw new ForbiddenException(
+        localizedError(ERROR_CODES.CAT_FORBIDDEN_OWNER),
+      );
     }
     return this.prisma.cat.update({
       where: { id: catId },
@@ -226,7 +236,9 @@ export class CustomersService {
       },
     });
     if (!cat) {
-      throw new NotFoundException('Cat not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CAT_NOT_FOUND),
+      );
     }
 
     return {
@@ -265,7 +277,9 @@ export class CustomersService {
   async updateAdminCat(catId: string, dto: UpdateCatDto) {
     const cat = await this.prisma.cat.findUnique({ where: { id: catId } });
     if (!cat) {
-      throw new NotFoundException('Cat not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CAT_NOT_FOUND),
+      );
     }
     return this.prisma.cat.update({
       where: { id: catId },
@@ -385,7 +399,9 @@ export class CustomersService {
       select: { id: true, userId: true },
     });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CUSTOMER_NOT_FOUND),
+      );
     }
 
     const reservations = await this.prisma.reservation.findMany({
@@ -434,7 +450,9 @@ export class CustomersService {
       where: { userId },
     });
     if (!customer) {
-      throw new NotFoundException('Customer profile not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CUSTOMER_PROFILE_NOT_FOUND),
+      );
     }
     return customer;
   }
@@ -444,7 +462,9 @@ export class CustomersService {
       where: { id },
     });
     if (!customer) {
-      throw new NotFoundException('Customer profile not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CUSTOMER_PROFILE_NOT_FOUND),
+      );
     }
     return customer;
   }

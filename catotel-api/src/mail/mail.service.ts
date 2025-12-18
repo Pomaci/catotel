@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvVars } from 'src/config/config.schema';
 import {
@@ -6,12 +6,13 @@ import {
   type Transporter,
   type SendMailOptions,
 } from 'nodemailer';
+import { StructuredLogger } from 'src/common/logger/structured-logger';
 
 type MailPayload = Omit<SendMailOptions, 'from'>;
 
 @Injectable()
 export class MailService implements OnModuleInit {
-  private readonly logger = new Logger(MailService.name);
+  private readonly logger = new StructuredLogger(MailService.name);
   private transporter: Transporter | null = null;
   private readonly fromAddress: string | null;
   private mailEnabled: boolean;
@@ -55,7 +56,8 @@ export class MailService implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         'Failed to initialize SMTP transporter. Emails will not be delivered.',
-        error instanceof Error ? error.stack : String(error),
+        { error: error instanceof Error ? error.message : String(error) },
+        error instanceof Error ? error.stack : undefined,
       );
       this.mailReady = false;
       this.mailEnabled = false;
@@ -81,9 +83,9 @@ export class MailService implements OnModuleInit {
   ): NonNullable<EnvVars[Key]> | null {
     const value = this.getEnv(key);
     if (value === undefined || value === null || value === '') {
-      this.logger.error(
-        `Missing required environment variable for mail service: ${String(key)}`,
-      );
+      this.logger.error('Missing required mail configuration value', {
+        setting: String(key),
+      });
       return null;
     }
     return value as NonNullable<EnvVars[Key]>;
@@ -128,11 +130,15 @@ export class MailService implements OnModuleInit {
         ...options,
       });
       const recipients = this.formatRecipients(options.to);
-      this.logger.debug(`Mail sent to ${recipients}`);
+      this.logger.debug('Mail sent', { recipients });
     } catch (error) {
       this.logger.error(
         'Failed to send mail',
-        error instanceof Error ? error.stack : '',
+        {
+          recipients: this.formatRecipients(options.to),
+          error: error instanceof Error ? error.message : String(error),
+        },
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }

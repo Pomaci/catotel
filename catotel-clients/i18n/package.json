@@ -1,0 +1,28 @@
+{
+  "name": "@catotel/i18n",
+  "version": "0.1.0",
+  "description": "Shared Catotel i18n primitives and error catalog.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean"
+  },
+  "keywords": [
+    "catotel",
+    "i18n",
+    "errors"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "tsup": "^8.2.4",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,10 +1,11 @@
 "use client";
 
-import { ReservationWizard } from "@/components/reservations/ReservationWizard";
+import { ReservationWizard, type ReservationWizardValues } from "@/components/reservations/ReservationWizard";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { HotelApi } from "@/lib/api/hotel";
 import { useState } from "react";
+import type { ReservationUpdatePayload } from "@/lib/api/payloads";
 
 export default function ReservationEditPage() {
   const params = useParams<{ id: string }>();
@@ -25,7 +26,7 @@ export default function ReservationEditPage() {
   const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: () => HotelApi.listCats() });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: any) => HotelApi.updateReservation(reservationId!, payload),
+    mutationFn: (payload: ReservationUpdatePayload) => HotelApi.updateReservation(reservationId!, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reservation", reservationId] });
       queryClient.invalidateQueries({ queryKey: ["reservations"] });
@@ -36,20 +37,11 @@ export default function ReservationEditPage() {
     },
   });
 
-  async function handleSubmit(values: {
-    roomTypeId: string | null;
-    catIds: string[];
-    checkIn: string;
-    checkOut: string;
-    specialRequests?: string;
-    customerId?: string | null;
-    allowRoomSharing?: boolean;
-    addons?: { serviceId: string; quantity: number }[];
-  }) {
+  async function handleSubmit(values: ReservationWizardValues) {
     if (!reservationId) return;
     setError(null);
     setSuccess(null);
-    await updateMutation.mutateAsync({
+    const payload: ReservationUpdatePayload = {
       roomTypeId: values.roomTypeId ?? reservation?.roomType.id,
       catIds: values.catIds,
       checkIn: values.checkIn,
@@ -66,7 +58,8 @@ export default function ReservationEditPage() {
               quantity: Math.max(1, addon.quantity),
             }))
           : undefined,
-    });
+    };
+    await updateMutation.mutateAsync(payload);
   }
 
   return (
@@ -78,7 +71,7 @@ export default function ReservationEditPage() {
         cats={cats}
         initialReservation={reservation}
         customerName={reservation?.customer?.user.name ?? reservation?.customer?.user.email ?? null}
-        submitting={reservationLoading || updateMutation.isLoading}
+        submitting={reservationLoading || updateMutation.isPending}
         onSubmitAction={handleSubmit}
         initialStep={
           stepParam === "dates" || stepParam === "cats" || stepParam === "pricing"

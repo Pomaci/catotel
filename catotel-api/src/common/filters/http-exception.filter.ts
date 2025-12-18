@@ -8,6 +8,10 @@ import {
 import { Response } from 'express';
 import { RequestWithId } from '../middleware/request-id.middleware';
 import { StructuredLogger } from '../logger/structured-logger';
+import {
+  isLocalizedErrorMessage,
+  type LocalizedErrorMessage,
+} from '@catotel/i18n';
 
 @Catch()
 export class GlobalHttpExceptionFilter implements ExceptionFilter {
@@ -50,7 +54,7 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
     const path = request?.originalUrl;
     const method = request?.method;
     const requestId = request?.requestId;
-    const userId = (request as any)?.user?.sub as string | undefined;
+    const userId = request.user?.sub;
     const ip =
       request?.ip ||
       (Array.isArray(request?.ips) && request.ips.length ? request.ips[0] : undefined);
@@ -62,13 +66,19 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
     let message = defaultMessage;
     let errorType: string | undefined;
     let validationErrors: string[] | undefined;
+    let localizedMessage: LocalizedErrorMessage | undefined;
 
     if (exception instanceof HttpException) {
-      const { message: resolvedMessage, validationErrors: resolvedErrors, errorType: resolvedErrorType } =
-        this.normalizeHttpExceptionResponse(exception);
+      const {
+        message: resolvedMessage,
+        validationErrors: resolvedErrors,
+        errorType: resolvedErrorType,
+        localizedMessage: resolvedLocalizedMessage,
+      } = this.normalizeHttpExceptionResponse(exception);
       message = resolvedMessage;
       validationErrors = resolvedErrors;
       errorType = resolvedErrorType;
+      localizedMessage = resolvedLocalizedMessage;
     } else if (exception instanceof Error) {
       message =
         status === HttpStatus.INTERNAL_SERVER_ERROR
@@ -85,6 +95,7 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
       method,
       error: errorType ?? HttpStatus[status] ?? 'Error',
       message,
+      ...(localizedMessage ? { localizedMessage } : {}),
       ...(validationErrors ? { errors: validationErrors } : {}),
     };
 
@@ -94,6 +105,7 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
       ip,
       errorName: exception instanceof Error ? exception.name : undefined,
       errorMessage: exception instanceof Error ? exception.message : undefined,
+      localizedMessageCode: localizedMessage?.code,
     };
 
     const trace = exception instanceof Error ? exception.stack : undefined;
@@ -107,12 +119,14 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
     message: string;
     validationErrors?: string[];
     errorType?: string;
+    localizedMessage?: LocalizedErrorMessage;
   } {
     const response = exception.getResponse();
     const fallbackMessage = exception.message;
     let message = fallbackMessage;
     let validationErrors: string[] | undefined;
     let errorType: string | undefined = exception.name;
+    let localizedMessage: LocalizedErrorMessage | undefined;
 
     if (typeof response === 'string') {
       message = response;
@@ -120,6 +134,11 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
       const responseBody = response as Record<string, unknown>;
       const responseMessage = responseBody['message'];
       const responseError = responseBody['error'];
+      const maybeLocalized = responseBody['localizedMessage'];
+      if (isLocalizedErrorMessage(maybeLocalized)) {
+        localizedMessage = maybeLocalized;
+        message = maybeLocalized.message;
+      }
 
       if (Array.isArray(responseMessage)) {
         validationErrors = responseMessage.map((value) => String(value));
@@ -127,15 +146,14 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
           typeof responseError === 'string' && responseError.length > 0
             ? responseError
             : 'Validation failed';
-      } else if (
-        typeof responseMessage === 'string' &&
-        responseMessage.length > 0
-      ) {
+      } else if (typeof responseMessage === 'object' && responseMessage !== null) {
+        if (isLocalizedErrorMessage(responseMessage)) {
+          localizedMessage = responseMessage;
+          message = responseMessage.message;
+        }
+      } else if (typeof responseMessage === 'string' && responseMessage.length > 0) {
         message = responseMessage;
-      } else if (
-        typeof responseError === 'string' &&
-        responseError.length > 0
-      ) {
+      } else if (typeof responseError === 'string' && responseError.length > 0) {
         message = responseError;
       }
 
@@ -144,6 +162,6 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
       }
     }
 
-    return { message, validationErrors, errorType };
+    return { message, validationErrors, errorType, localizedMessage };
   }
 }

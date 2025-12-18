@@ -6,6 +6,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, ArrowLeft, ArrowRight, ArrowUpDown, CheckCircle2, DoorOpen, Edit2, Home, MoreHorizontal, PawPrint, X } from "lucide-react";
 import { AdminApi, type AdminRoomListResponse, type AdminRoomTypeListResponse } from "@/lib/api/admin";
 import type { Room as HotelRoom, RoomType as RoomTypeModel } from "@/types/hotel";
+import type {
+  CreateRoomPayload,
+  CreateRoomTypePayload,
+  JsonMap,
+  UpdateRoomPayload,
+  UpdateRoomTypePayload,
+} from "@/lib/api/payloads";
 
 type RoomStatus = "ACTIVE" | "INACTIVE";
 type SortKey = "name" | "capacity" | "status" | "rate" | "units" | "occupancy";
@@ -104,7 +111,7 @@ export default function RoomsPage() {
   }, [normalizedTypes.total, perPage]);
 
   const createRoomType = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => AdminApi.createRoomType(payload),
+    mutationFn: (payload: CreateRoomTypePayload) => AdminApi.createRoomType(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-room-types"] });
       queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
@@ -118,7 +125,7 @@ export default function RoomsPage() {
   });
 
   const updateRoomType = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) => AdminApi.updateRoomType(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateRoomTypePayload }) => AdminApi.updateRoomType(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-room-types"] });
       queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
@@ -132,7 +139,7 @@ export default function RoomsPage() {
   });
 
   const createRoom = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => AdminApi.createRoom(payload),
+    mutationFn: (payload: CreateRoomPayload) => AdminApi.createRoom(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       queryClient.invalidateQueries({ queryKey: ["admin-room-types"] });
@@ -146,7 +153,7 @@ export default function RoomsPage() {
   });
 
   const updateRoom = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) => AdminApi.updateRoom(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateRoomPayload }) => AdminApi.updateRoom(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       queryClient.invalidateQueries({ queryKey: ["admin-room-types"] });
@@ -160,7 +167,7 @@ export default function RoomsPage() {
   });
 
   const handleSaveRoomType = async (values: RoomTypeFormValues, existing?: RoomTypeModel | null) => {
-    const payload: Record<string, unknown> = {
+    const payload: CreateRoomTypePayload = {
       name: values.name.trim(),
       description: values.description?.trim() || undefined,
       capacity: values.capacity,
@@ -168,13 +175,13 @@ export default function RoomsPage() {
       overbookingLimit: values.overbookingLimit,
       isActive: values.status === "ACTIVE",
     };
-    if (existing?.amenities) payload.amenities = existing.amenities;
+    if (existing?.amenities) payload.amenities = existing.amenities as JsonMap;
     if (existing?.id) await updateRoomType.mutateAsync({ id: existing.id, payload });
     else await createRoomType.mutateAsync(payload);
   };
 
   const handleSaveRoom = async (values: RoomFormValues, existing?: HotelRoom | null) => {
-    const payload: Record<string, unknown> = {
+    const payload: CreateRoomPayload = {
       name: values.name.trim(),
       roomTypeId: values.roomTypeId,
       description: values.description?.trim() || undefined,
@@ -1074,5 +1081,4 @@ function calculateRangeEnd(start: string, days: number) {
   next.setDate(next.getDate() + Math.max(1, days));
   return next.toISOString().slice(0, 10);
 }
-
 

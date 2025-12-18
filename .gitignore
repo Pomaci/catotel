@@ -49,3 +49,9 @@ logs/
 *.pid
 *.pid.lock
 catotel-infra-check/redisdata/
+scratch/
+**/scratch/
+scratch.*
+*.scratch.*
+*.tmp
+*.tmp.*

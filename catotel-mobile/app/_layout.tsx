@@ -4,13 +4,16 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ReactNode } from "react";
 import { AuthProvider } from "@/context/AuthContext";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { colors } from "@/theme";
 
 function Providers({ children }: { children: ReactNode }) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

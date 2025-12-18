@@ -4,7 +4,7 @@ import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 export class CreateCustomerDto {
   @ApiProperty()
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiPropertyOptional()
   @IsOptional()

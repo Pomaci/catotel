@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { backendRefresh } from '@/lib/server/backend-auth';
 import {
+  clearAuthCookies,
   getRefreshTokenFromCookies,
   setAuthCookies,
 } from '@/lib/server/auth-cookies';
@@ -17,6 +18,8 @@ export async function POST(request: Request) {
 
   const refreshToken = getRefreshTokenFromCookies();
   if (!refreshToken) {
+    clearAuthCookies();
+    ensureCsrfToken();
     return NextResponse.json({ message: 'Refresh token yok.' }, { status: 401 });
   }
 
@@ -26,6 +29,8 @@ export async function POST(request: Request) {
     ensureCsrfToken();
     return NextResponse.json({ ok: true });
   } catch (error) {
+    clearAuthCookies();
+    ensureCsrfToken();
     return handleApiError(error);
   }
 }

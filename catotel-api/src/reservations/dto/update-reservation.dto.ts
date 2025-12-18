@@ -15,8 +15,15 @@ import {
 import { Type } from 'class-transformer';
 import { ReservationStatus } from '@prisma/client';
 import { ReservationAddonDto } from './create-reservation.dto';
+import type {
+  CheckInForm,
+  CheckItem,
+  CheckOutForm,
+  FeedingPlan,
+  MedicationPlan,
+} from '@catotel/contracts';
 
-class CheckItemDto {
+class CheckItemDto implements CheckItem {
   @IsString()
   label!: string;
 
@@ -31,7 +38,7 @@ class CheckItemDto {
   note?: string;
 }
 
-class FeedingPlanDto {
+class FeedingPlanDto implements FeedingPlan {
   @IsOptional()
   @IsString()
   brand?: string;
@@ -51,7 +58,7 @@ class FeedingPlanDto {
   instructions?: string;
 }
 
-class MedicationPlanDto {
+class MedicationPlanDto implements MedicationPlan {
   @IsString()
   name!: string;
 
@@ -72,7 +79,7 @@ class MedicationPlanDto {
   notes?: string;
 }
 
-class CheckInFormDto {
+class CheckInFormDto implements CheckInForm {
   @IsOptional()
   @IsDateString()
   arrivalTime?: string;
@@ -125,7 +132,7 @@ class CheckInFormDto {
   additionalNotes?: string;
 }
 
-class CheckOutFormDto {
+class CheckOutFormDto implements CheckOutForm {
   @IsOptional()
   @IsDateString()
   departureTime?: string;

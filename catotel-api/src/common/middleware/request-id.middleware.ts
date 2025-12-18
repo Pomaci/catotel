@@ -1,8 +1,13 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { NextFunction, Request, Response } from 'express';
+import { NextFunction, Response } from 'express';
+import type { RequestUser } from 'src/types/request-user';
+import {
+  runWithRequestContext,
+  type RequestContextPayload,
+} from '../request-context/request-context';
 
-export type RequestWithId = Request & { requestId?: string };
+export type RequestWithId = RequestUser & { requestId?: string };
 
 @Injectable()
 export class RequestIdMiddleware implements NestMiddleware {
@@ -21,6 +26,11 @@ export class RequestIdMiddleware implements NestMiddleware {
     req.requestId = normalized;
     res.setHeader('X-Request-Id', normalized);
 
-    next();
+    const context: RequestContextPayload = {
+      requestId: normalized,
+      userId: req.user?.sub,
+    };
+
+    runWithRequestContext(context, () => next());
   }
 }

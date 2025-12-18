@@ -11,12 +11,12 @@ import { UserRole } from '@prisma/client';
 export class CreateManagedUserDto {
   @ApiProperty()
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiProperty()
   @IsString()
   @MinLength(6)
-  password: string;
+  password!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -27,5 +27,5 @@ export class CreateManagedUserDto {
   @IsEnum(UserRole, {
     message: 'Role must be ADMIN, MANAGER, or STAFF',
   })
-  role: UserRole;
+  role!: UserRole;
 }

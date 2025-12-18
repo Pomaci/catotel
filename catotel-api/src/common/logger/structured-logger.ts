@@ -1,6 +1,8 @@
 import { Logger } from '@nestjs/common';
+import { getRequestContext } from '../request-context/request-context';
 
 export type LogMetadata = Record<string, unknown>;
+type LogLevel = 'debug' | 'log' | 'warn' | 'error';
 
 export class StructuredLogger {
   private readonly logger: Logger;
@@ -10,24 +12,38 @@ export class StructuredLogger {
   }
 
   log(message: string, metadata?: LogMetadata) {
-    this.logger.log(this.format(message, metadata));
+    this.logger.log(this.format('log', message, metadata));
+  }
+
+  debug(message: string, metadata?: LogMetadata) {
+    this.logger.debug(this.format('debug', message, metadata));
   }
 
   warn(message: string, metadata?: LogMetadata) {
-    this.logger.warn(this.format(message, metadata));
+    this.logger.warn(this.format('warn', message, metadata));
   }
 
   error(message: string, metadata?: LogMetadata, trace?: string) {
-    this.logger.error(this.format(message, metadata), trace);
+    this.logger.error(this.format('error', message, metadata), trace);
   }
 
-  private format(message: string, metadata?: LogMetadata): string {
-    const payload = {
+  private format(level: LogLevel, message: string, metadata?: LogMetadata): string {
+    const cleanedMetadata = this.cleanMetadata(metadata);
+    const contextSnapshot = getRequestContext();
+    const payload: Record<string, unknown> = {
+      level,
       message,
-      ...this.cleanMetadata(metadata),
       timestamp: new Date().toISOString(),
       context: this.context,
+      ...cleanedMetadata,
     };
+
+    if (contextSnapshot?.requestId && payload.requestId === undefined) {
+      payload.requestId = contextSnapshot.requestId;
+    }
+    if (contextSnapshot?.userId && payload.userId === undefined) {
+      payload.userId = contextSnapshot.userId;
+    }
 
     return JSON.stringify(payload);
   }

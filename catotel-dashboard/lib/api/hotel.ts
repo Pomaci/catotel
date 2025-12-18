@@ -12,10 +12,18 @@ import type {
   Room,
   RoomType,
 } from '@/types/hotel';
+import type {
+  CreateCatPayload,
+  CustomerProfileUpdatePayload,
+  ReservationRequestPayload,
+  ReservationUpdatePayload,
+  TaskStatusUpdatePayload,
+  UpdateCatPayload,
+} from '@/lib/api/payloads';
 
 export const HotelApi = {
   getProfile: () => clientRequest<CustomerProfile>('/api/customer/me'),
-  updateProfile: (payload: Record<string, unknown>) =>
+  updateProfile: (payload: CustomerProfileUpdatePayload) =>
     clientRequest<CustomerProfile>(
       '/api/customer/me',
       {
@@ -25,7 +33,7 @@ export const HotelApi = {
       { csrf: true },
     ),
   listCats: () => clientRequest<Cat[]>('/api/customer/cats'),
-  createCat: (payload: Record<string, unknown>) =>
+  createCat: (payload: CreateCatPayload) =>
     clientRequest<Cat>(
       '/api/customer/cats',
       {
@@ -34,7 +42,7 @@ export const HotelApi = {
       },
       { csrf: true },
     ),
-  updateCat: (id: string, payload: Record<string, unknown>) =>
+  updateCat: (id: string, payload: UpdateCatPayload) =>
     clientRequest<Cat>(
       `/api/customer/cats/${id}`,
       {
@@ -66,7 +74,7 @@ export const HotelApi = {
     ),
   getReservation: (id: string) =>
     clientRequest<Reservation>(`/api/reservations/${id}`),
-  createReservation: (payload: Record<string, unknown>) =>
+  createReservation: (payload: ReservationRequestPayload) =>
     clientRequest<Reservation>(
       '/api/reservations',
       {
@@ -75,7 +83,7 @@ export const HotelApi = {
       },
       { csrf: true },
     ),
-  updateReservation: (id: string, payload: Record<string, unknown>) =>
+  updateReservation: (id: string, payload: ReservationUpdatePayload) =>
     clientRequest<Reservation>(
       `/api/reservations/${id}`,
       {
@@ -94,7 +102,7 @@ export const HotelApi = {
       { csrf: true },
     ),
   listStaffTasks: () => clientRequest<CareTask[]>('/api/staff/tasks'),
-  updateTaskStatus: (id: string, payload: Record<string, unknown>) =>
+  updateTaskStatus: (id: string, payload: TaskStatusUpdatePayload) =>
     clientRequest<CareTask>(
       `/api/staff/tasks/${id}/status`,
       {

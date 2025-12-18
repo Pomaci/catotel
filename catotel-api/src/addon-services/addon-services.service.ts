@@ -5,6 +5,10 @@ import {
   CreateAddonServiceDto,
   UpdateAddonServiceDto,
 } from './dto/addon-service.dto';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class AddonServicesService {
@@ -40,7 +44,9 @@ export class AddonServicesService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
-        throw new NotFoundException('Addon service not found');
+        throw new NotFoundException(
+          localizedError(ERROR_CODES.ADDON_SERVICE_NOT_FOUND),
+        );
       }
       throw error;
     }
@@ -54,7 +60,9 @@ export class AddonServicesService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
-        throw new NotFoundException('Addon service not found');
+        throw new NotFoundException(
+          localizedError(ERROR_CODES.ADDON_SERVICE_NOT_FOUND),
+        );
       }
       throw error;
     }

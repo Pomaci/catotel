@@ -13,6 +13,10 @@ import { DEFAULT_PASSWORD_RESET_URL } from 'src/config/defaults';
 import { randomUUID, createHash } from 'crypto';
 import { addMinutes, subMinutes } from 'date-fns';
 import * as bcrypt from 'bcrypt';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class PasswordResetService {
@@ -92,7 +96,9 @@ export class PasswordResetService {
     });
 
     if (!record) {
-      throw new BadRequestException('Invalid or expired token');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.PASSWORD_RESET_TOKEN_INVALID),
+      );
     }
 
     const hashedPassword = await bcrypt.hash(
@@ -135,7 +141,7 @@ export class PasswordResetService {
 
     if (recentRequests >= this.resetRequestLimit) {
       throw new HttpException(
-        'Too many password reset requests. Please try again later.',
+        localizedError(ERROR_CODES.PASSWORD_RESET_RATE_LIMITED),
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

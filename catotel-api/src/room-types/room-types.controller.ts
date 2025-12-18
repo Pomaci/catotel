@@ -15,6 +15,10 @@ import { Public } from 'src/common/decorators/public.decorator';
 import { CreateRoomTypeDto } from './dto/create-room-type.dto';
 import { UpdateRoomTypeDto } from './dto/update-room-type.dto';
 import { RoomTypesService } from './room-types.service';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @ApiTags('Room Types')
 @Controller('room-types')
@@ -35,14 +39,18 @@ export class RoomTypesController {
   ) {
     const activeOnly = includeInactive !== 'true';
     if ((checkIn && !checkOut) || (!checkIn && checkOut)) {
-      throw new BadRequestException('Both checkIn and checkOut are required');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.ROOM_TYPE_AVAILABILITY_RANGE_REQUIRED),
+      );
     }
     const requestedPartySize =
       partySize && !Number.isNaN(Number(partySize))
         ? Number(partySize)
         : undefined;
     if (partySize && requestedPartySize === undefined) {
-      throw new BadRequestException('partySize must be a number');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.ROOM_TYPE_PARTY_SIZE_INVALID),
+      );
     }
     if (checkIn && checkOut) {
       return this.roomTypes.listWithAvailability(

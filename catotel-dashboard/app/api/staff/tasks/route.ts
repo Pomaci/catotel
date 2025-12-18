@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from 'next/server';
 import { backendRequestWithRefresh } from '@/lib/server/backend-auth-refresh';
 import { handleApiError } from '@/lib/server/api-error-response';

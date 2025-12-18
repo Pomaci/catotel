@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import { ApiError } from '@catotel/api-client';
+import {
+  isLocalizedErrorMessage,
+  type LocalizedErrorMessage,
+} from '@catotel/i18n';
+
+type ApiErrorBody = {
+  message?: string | string[] | LocalizedErrorMessage;
+  localizedMessage?: LocalizedErrorMessage;
+  error?: string;
+  errors?: string[];
+};
 
 type ApiErrorShape = {
   status?: number;
-  body?: {
-    message?: string | string[];
-    error?: string;
-  };
+  body?: ApiErrorBody;
 };
 
 function resolveErrorPayload(error: unknown): ApiErrorShape | null {
@@ -28,26 +36,64 @@ function resolveErrorPayload(error: unknown): ApiErrorShape | null {
   return null;
 }
 
-function extractMessage(body?: ApiErrorShape['body']) {
+type NormalizedErrorMessage = {
+  message: string;
+  localizedMessage?: LocalizedErrorMessage;
+  validationErrors?: string[];
+};
+
+function extractMessage(body?: ApiErrorBody): NormalizedErrorMessage {
+  const fallback = 'Unexpected backend error';
   if (!body) {
-    return 'Unexpected backend error';
+    return { message: fallback };
   }
+  let validationErrors: string[] | undefined;
+  let localized: LocalizedErrorMessage | undefined;
+  let resolved = fallback;
   const raw = body.message ?? body.error;
+
   if (Array.isArray(raw)) {
-    return raw.join(', ');
+    validationErrors = raw.map((value) => String(value));
+    resolved = validationErrors.join(', ');
+  } else if (isLocalizedErrorMessage(raw)) {
+    localized = raw;
+    resolved = raw.message;
+  } else if (typeof raw === 'string' && raw.trim().length > 0) {
+    resolved = raw;
   }
-  if (typeof raw === 'string' && raw.trim().length > 0) {
-    return raw;
+
+  if (!localized && isLocalizedErrorMessage(body.localizedMessage)) {
+    localized = body.localizedMessage;
+    resolved = localized.message;
   }
-  return 'Unexpected backend error';
+
+  if (!validationErrors && Array.isArray(body.errors)) {
+    validationErrors = body.errors.map((value) => String(value));
+  }
+
+  if (!resolved && typeof body.error === 'string' && body.error.trim()) {
+    resolved = body.error;
+  }
+
+  return {
+    message: resolved || fallback,
+    localizedMessage: localized,
+    validationErrors,
+  };
 }
 
 export function handleApiError(error: unknown) {
   const payload = resolveErrorPayload(error);
   if (payload) {
     const status = payload.status ?? 500;
+    const normalized = extractMessage(payload.body);
     return NextResponse.json(
-      { message: extractMessage(payload.body) },
+      {
+        message: normalized.message,
+        errorCode: normalized.localizedMessage?.code,
+        localizedMessage: normalized.localizedMessage,
+        validationErrors: normalized.validationErrors,
+      },
       { status },
     );
   }

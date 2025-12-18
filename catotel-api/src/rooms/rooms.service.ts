@@ -6,6 +6,10 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class RoomsService {
@@ -24,7 +28,9 @@ export class RoomsService {
       where: { id: dto.roomTypeId },
     });
     if (!roomType || !roomType.isActive) {
-      throw new BadRequestException('Room type not found or inactive');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.ROOM_TYPE_NOT_ACTIVE),
+      );
     }
     return this.prisma.room.create({
       data: {
@@ -40,7 +46,9 @@ export class RoomsService {
   async update(id: string, dto: UpdateRoomDto) {
     const existing = await this.prisma.room.findUnique({ where: { id } });
     if (!existing) {
-      throw new NotFoundException('Room not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.ROOM_NOT_FOUND),
+      );
     }
 
     if (dto.roomTypeId) {
@@ -48,7 +56,9 @@ export class RoomsService {
         where: { id: dto.roomTypeId },
       });
       if (!targetType || !targetType.isActive) {
-        throw new BadRequestException('Room type not found or inactive');
+        throw new BadRequestException(
+          localizedError(ERROR_CODES.ROOM_TYPE_NOT_ACTIVE),
+        );
       }
     }
 

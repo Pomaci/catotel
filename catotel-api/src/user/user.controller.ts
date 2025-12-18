@@ -26,6 +26,10 @@ import { CreateManagedUserDto } from './dto/create-managed-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { CustomerSearchDto } from './dto/customer-search.dto';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @ApiTags('Users')
 @Controller('users')
@@ -47,12 +51,16 @@ export class UserController {
   async getMe(@Req() req: Request) {
     const userId = req.user?.sub;
     if (!userId) {
-      throw new NotFoundException('User ID not found in token');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.AUTH_USER_ID_MISSING),
+      );
     }
 
     const user = await this.userService.findById(userId);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.USER_NOT_FOUND),
+      );
     }
 
     const { id, email, name, role, customer, staff } = user;

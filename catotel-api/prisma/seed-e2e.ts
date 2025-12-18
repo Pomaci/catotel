@@ -1,7 +1,9 @@
 import * as bcrypt from 'bcrypt';
 import { PrismaClient, UserRole } from '@prisma/client';
+import { StructuredLogger } from '../src/common/logger/structured-logger';
 
 const prisma = new PrismaClient();
+const seedLogger = new StructuredLogger('E2ESeed');
 
 async function main() {
   const email = process.env.E2E_ADMIN_EMAIL ?? 'admin@catotel.test';
@@ -16,12 +18,16 @@ async function main() {
     create: { email, password: hash, role: UserRole.ADMIN, name },
   });
 
-  console.log(`Seeded admin user ${email}`);
+  seedLogger.log('Seeded admin user', { email });
 }
 
 main()
   .catch((err) => {
-    console.error('E2E seed failed', err);
+    seedLogger.error(
+      'E2E seed failed',
+      { error: err instanceof Error ? err.message : String(err) },
+      err instanceof Error ? err.stack : undefined,
+    );
     process.exit(1);
   })
   .finally(async () => {

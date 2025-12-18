@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { CareTask } from "@/types/hotel";
 import { CareTaskStatus } from "@/types/enums";
@@ -49,17 +49,17 @@ export function TasksCard({
   return (
     <Card>
       <SectionHeading
-        title="Bakım Görevleri"
+        title="Bakim Gorevleri"
         action={
           <Text style={styles.action} onPress={onRefresh}>
             Yenile
           </Text>
         }
       />
-      {loading && <Text style={styles.info}>Görevler yükleniyor...</Text>}
+      {loading && <Text style={styles.info}>Gorevler yukleniyor...</Text>}
       {!loading && tasks.length === 0 && (
         <Text style={styles.info}>
-          Aktif personel görevi bulunamadı veya bu rol için erişim yok.
+          Aktif personel gorevi bulunamadi veya bu rol icin erisim yok.
         </Text>
       )}
 
@@ -68,35 +68,40 @@ export function TasksCard({
           <View key={status} style={styles.column}>
             <Text style={styles.columnTitle}>{formatEnum(status)}</Text>
             <View style={styles.columnList}>
-              {items.map((task) => (
-                <View key={task.id} style={styles.taskCard}>
-                  <Text style={styles.taskTitle}>{formatEnum(task.type)}</Text>
-                  <Text style={styles.meta}>
-                    {task.cat?.name ?? "Belirsiz"} ·{" "}
-                    {task.reservation?.room.name ?? "Oda yok"}
-                  </Text>
-                  <Text style={styles.meta}>
-                    Planlanan: {formatDate(task.scheduledAt)}
-                  </Text>
-                  {task.notes && (
-                    <Text style={styles.notes}>Not: {task.notes}</Text>
-                  )}
-                  <View style={styles.taskActions}>
-                    {[CareTaskStatus.IN_PROGRESS, CareTaskStatus.DONE].map(
-                      (next) => (
-                        <Button
-                          key={next}
-                          variant="ghost"
-                          label={formatEnum(next)}
-                          style={styles.taskButton}
-                          loading={pending === `${task.id}-${next}`}
-                          onPress={() => handleUpdate(task.id, next)}
-                        />
-                      ),
+              {items.map((task) => {
+                const roomLabel =
+                  task.reservation?.roomAssignments?.[0]?.room?.name ??
+                  task.reservation?.roomType?.name ??
+                  "Oda yok";
+                return (
+                  <View key={task.id} style={styles.taskCard}>
+                    <Text style={styles.taskTitle}>{formatEnum(task.type)}</Text>
+                    <Text style={styles.meta}>
+                      {task.cat?.name ?? "Belirsiz"} - {roomLabel}
+                    </Text>
+                    <Text style={styles.meta}>
+                      Planlanan: {formatDate(task.scheduledAt)}
+                    </Text>
+                    {task.notes && (
+                      <Text style={styles.notes}>Not: {task.notes}</Text>
                     )}
+                    <View style={styles.taskActions}>
+                      {[CareTaskStatus.IN_PROGRESS, CareTaskStatus.DONE].map(
+                        (next) => (
+                          <Button
+                            key={next}
+                            variant="ghost"
+                            label={formatEnum(next)}
+                            style={styles.taskButton}
+                            loading={pending === `${task.id}-${next}`}
+                            onPress={() => handleUpdate(task.id, next)}
+                          />
+                        ),
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         ))}

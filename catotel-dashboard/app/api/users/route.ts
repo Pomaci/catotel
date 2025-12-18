@@ -2,11 +2,11 @@
 
 import { NextResponse } from "next/server";
 import { jwtDecode } from "jwt-decode";
-import { UserRole } from "@catotel/api-client";
 import { backendRequestWithRefresh } from "@/lib/server/backend-auth-refresh";
 import { handleApiError } from "@/lib/server/api-error-response";
 import { requireCsrfToken } from "@/lib/server/csrf";
 import { getAccessTokenFromCookies } from "@/lib/server/auth-cookies";
+import type { UserRole } from "@/types/enums";
 
 function authorize(requiredRoles: UserRole[]) {
   const token = getAccessTokenFromCookies();
@@ -24,8 +24,10 @@ function authorize(requiredRoles: UserRole[]) {
   }
 }
 
+const elevatedRoles: UserRole[] = ["ADMIN", "MANAGER"];
+
 export async function GET() {
-  const auth = authorize([UserRole.ADMIN, UserRole.MANAGER]);
+  const auth = authorize(elevatedRoles);
   if (auth.error) {
     return auth.error;
   }
@@ -43,7 +45,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = authorize([UserRole.ADMIN, UserRole.MANAGER]);
+  const auth = authorize(elevatedRoles);
   if (auth.error) {
     return auth.error;
   }

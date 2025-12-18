@@ -4,6 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReservationStatus } from '@/types/enums';
 import { HotelApi } from '@/lib/api/hotel';
 import type { CareTask, Cat, CustomerProfile, Reservation, RoomType } from '@/types/hotel';
+import type {
+  CreateCatPayload,
+  CustomerProfileUpdatePayload,
+  ReservationRequestPayload,
+  TaskStatusUpdatePayload,
+  UpdateCatPayload,
+} from '@/lib/api/payloads';
 
 export function useCustomerProfile(enabled = true) {
   return useQuery<CustomerProfile>({
@@ -16,7 +23,7 @@ export function useCustomerProfile(enabled = true) {
 export function useUpdateCustomerProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
+    mutationFn: (payload: CustomerProfileUpdatePayload) =>
       HotelApi.updateProfile(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -37,7 +44,7 @@ export function useCats(enabled = true) {
 export function useCreateCat() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
+    mutationFn: (payload: CreateCatPayload) =>
       HotelApi.createCat(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['customer', 'cats'] });
@@ -49,7 +56,7 @@ export function useCreateCat() {
 export function useUpdateCat() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateCatPayload }) =>
       HotelApi.updateCat(id, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['customer', 'cats'] });
@@ -80,7 +87,7 @@ export function useReservations(
 export function useCreateReservation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
+    mutationFn: (payload: ReservationRequestPayload) =>
       HotelApi.createReservation(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
@@ -105,7 +112,7 @@ export function useUpdateTaskStatus() {
       payload,
     }: {
       id: string;
-      payload: Record<string, unknown>;
+      payload: TaskStatusUpdatePayload;
     }) => HotelApi.updateTaskStatus(id, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['staff', 'tasks'] });

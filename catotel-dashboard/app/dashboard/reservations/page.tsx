@@ -880,7 +880,7 @@ function buildReservationCsv(reservations: Reservation[]) {
       cats || "Kedi yok",
       formatDate(res.checkIn),
       formatDate(res.checkOut),
-      res.room.name,
+      res.roomType?.name ?? "Oda",
       formatStatusFromVariant(status),
       res.totalPrice?.toString() ?? "",
     ]

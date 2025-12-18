@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, ReservationStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { StructuredLogger } from 'src/common/logger/structured-logger';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 type Allocation = {
   reservationId: string;
@@ -30,7 +35,7 @@ type AssignmentCandidate = {
 
 @Injectable()
 export class RoomAssignmentService {
-  private readonly logger = new Logger(RoomAssignmentService.name);
+  private readonly logger = new StructuredLogger(RoomAssignmentService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -52,9 +57,9 @@ export class RoomAssignmentService {
       return;
     }
     if (!roomType.rooms.length) {
-      this.logger.warn(
-        `Room type ${roomTypeId} has no active rooms; skipping assignment.`,
-      );
+      this.logger.warn('Room type has no active rooms; skipping assignment', {
+        roomTypeId,
+      });
       return;
     }
 
@@ -108,7 +113,7 @@ export class RoomAssignmentService {
       const catCount = Math.max(catIds.length, 1);
       if (catCount > capacity) {
         throw new BadRequestException(
-          'Rezervasyon seçilen oda tipinin kapasitesini aşıyor.',
+          localizedError(ERROR_CODES.RESERVATION_ROOM_ASSIGNMENT_CAPACITY),
         );
       }
       const allowRoomSharing =
@@ -208,7 +213,7 @@ export class RoomAssignmentService {
 
       if (!assignedRoom) {
         throw new BadRequestException(
-          'Uygun oda bulunamadı. Lütfen tarihleri veya oda tipini güncelleyin.',
+          localizedError(ERROR_CODES.RESERVATION_ROOM_ASSIGNMENT_NO_ROOM),
         );
       }
 

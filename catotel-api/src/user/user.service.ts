@@ -4,7 +4,6 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -16,14 +15,19 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { EnvVars } from 'src/config/config.schema';
 import { DEFAULT_PASSWORD_RESET_URL } from 'src/config/defaults';
+import { StructuredLogger } from 'src/common/logger/structured-logger';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { CreateManagedUserDto } from './dto/create-managed-user.dto';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { CustomerSearchDto } from './dto/customer-search.dto';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class UserService {
-  private readonly logger = new Logger(UserService.name);
+  private readonly logger = new StructuredLogger(UserService.name);
   private readonly resetUrl: string;
   private readonly resetTtlMinutes: number;
   private readonly resetRequestLimit: number;
@@ -53,7 +57,9 @@ export class UserService {
   async register({ email, password, name }: RegisterUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException(
+        localizedError(ERROR_CODES.USER_EMAIL_CONFLICT),
+      );
     }
 
     const hashed = await bcrypt.hash(password, 10);
@@ -75,7 +81,9 @@ export class UserService {
     try {
       await this.mail.sendWelcomeEmail(user.email, user.name ?? undefined);
     } catch (err) {
-      this.logger.warn(`Welcome email failed to send: ${String(err)}`);
+      this.logger.warn('Welcome email failed to send', {
+        reason: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return this.sanitizeUser(user);
@@ -111,7 +119,9 @@ export class UserService {
   }: CreateManagedUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException(
+        localizedError(ERROR_CODES.USER_EMAIL_CONFLICT),
+      );
     }
 
     const hashed = await bcrypt.hash(password, 10);
@@ -146,7 +156,9 @@ export class UserService {
   }: CreateCustomerDto) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException(
+        localizedError(ERROR_CODES.USER_EMAIL_CONFLICT),
+      );
     }
     const generated =
       password ||
@@ -176,9 +188,9 @@ export class UserService {
         user.name ?? undefined,
       );
     } catch (err) {
-      this.logger.warn(
-        `Customer invite email could not be sent: ${String(err)}`,
-      );
+      this.logger.warn('Customer invite email could not be sent', {
+        reason: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return {
@@ -194,7 +206,9 @@ export class UserService {
       include: { customer: true, staff: true },
     });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.USER_NOT_FOUND),
+      );
     }
 
     if (user.role === role) {
@@ -285,7 +299,9 @@ export class UserService {
       digits = `90${digits}`;
     }
     if (digits.length < 10) {
-      throw new BadRequestException('Invalid phone number');
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.USER_INVALID_PHONE),
+      );
     }
     return `+${digits}`;
   }
@@ -301,7 +317,7 @@ export class UserService {
 
     if (recentRequests >= this.resetRequestLimit) {
       throw new HttpException(
-        'Too many password reset requests. Please try again later.',
+        localizedError(ERROR_CODES.PASSWORD_RESET_RATE_LIMITED),
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

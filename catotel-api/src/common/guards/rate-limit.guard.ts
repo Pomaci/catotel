@@ -1,10 +1,11 @@
-import { Injectable, Logger, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerLimitDetail } from '@nestjs/throttler';
 import type { Request } from 'express';
+import { StructuredLogger } from '../logger/structured-logger';
 
 @Injectable()
 export class RateLimitGuard extends ThrottlerGuard {
-  private readonly logger = new Logger(RateLimitGuard.name);
+  private readonly logger = new StructuredLogger(RateLimitGuard.name);
 
   protected async getTracker(request: Request): Promise<string> {
     const forwardedFor = request.headers['x-forwarded-for'];
@@ -26,11 +27,11 @@ export class RateLimitGuard extends ThrottlerGuard {
   ) {
     const request = context.switchToHttp().getRequest<Request>();
     const sourceIp = await this.getTracker(request);
-    this.logger.warn(
-      `Rate limit exceeded for ${request.method} ${
-        request.originalUrl ?? request.url
-      } from ${sourceIp}`,
-    );
+    this.logger.warn('Rate limit exceeded', {
+      method: request.method,
+      path: request.originalUrl ?? request.url,
+      sourceIp,
+    });
     return super.throwThrottlingException(context, throttlerLimitDetail);
   }
 }

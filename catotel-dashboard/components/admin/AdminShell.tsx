@@ -85,6 +85,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 function AdminHeader({ mode, onToggleTheme }: { mode: ThemeMode; onToggleTheme: () => void }) {
   const { logout, user } = useAuth();
+  const nameCandidate = user?.name as unknown;
+  const emailCandidate = user?.email;
+  const resolvedName =
+    typeof nameCandidate === "string" && nameCandidate.trim().length > 0 ? nameCandidate : "Yönetici";
+  const resolvedEmail =
+    typeof emailCandidate === "string" && emailCandidate.trim().length > 0 ? emailCandidate : "onur@miaow.app";
   return (
     <header className="flex h-20 items-center justify-between border-b bg-[var(--admin-surface-alt)] px-6 lg:px-10 admin-border">
       <div className="flex items-center gap-3">
@@ -106,7 +112,7 @@ function AdminHeader({ mode, onToggleTheme }: { mode: ThemeMode; onToggleTheme: 
           <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-peach-400 shadow-glow" />
         </button>
         <ThemeToggle mode={mode} onToggle={onToggleTheme} />
-        <UserMenu name={user?.name ?? "Yönetici"} email={user?.email ?? "onur@miaow.app"} onLogout={logout} />
+        <UserMenu name={resolvedName} email={resolvedEmail} onLogout={logout} />
       </div>
     </header>
   );

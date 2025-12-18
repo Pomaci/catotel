@@ -23,7 +23,7 @@ const createSchema = z.object({
 
 type CreateFormValues = z.infer<typeof createSchema>;
 
-const managedRoles: UserRole[] = MANAGED_ROLE_VALUES;
+const managedRoles: readonly UserRole[] = MANAGED_ROLE_VALUES;
 
 export function AdminUsersSection({
   users,
@@ -204,4 +204,3 @@ function Tag({
     </span>
   );
 }
-
