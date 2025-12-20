@@ -1,3 +1,5 @@
+import { reportTelemetryEvent } from '@/lib/utils/client-error-reporter';
+
 const CSRF_COOKIE = 'catotel_csrf';
 const UNAUTHORIZED_THRESHOLD = 2;
 
@@ -76,11 +78,17 @@ function redirectToLogin() {
   window.location.assign(loginUrl.toString());
 }
 
-async function forceLogoutAfterRepeatedUnauthorized() {
+async function forceLogoutAfterRepeatedUnauthorized(path?: string) {
   if (typeof window === 'undefined') {
     return;
   }
   if (!forcedLogoutPromise) {
+    void reportTelemetryEvent({
+      type: 'AUTH_REFRESH_LOOP',
+      severity: 'warn',
+      message: 'Repeated unauthorized responses triggered forced logout.',
+      context: { path },
+    });
     forcedLogoutPromise = (async () => {
       await attemptSessionCleanup();
       redirectToLogin();
@@ -137,11 +145,25 @@ export async function clientRequest<T>(
     headers.set('X-CSRF-Token', csrfToken);
   }
 
-  const response = await fetch(applyQuery(path, query), {
-    ...restInit,
-    headers,
-    credentials: 'include',
-  });
+  let response: Response;
+  try {
+    response = await fetch(applyQuery(path, query), {
+      ...restInit,
+      headers,
+      credentials: 'include',
+    });
+  } catch (error) {
+    void reportTelemetryEvent({
+      type: 'NETWORK_ERROR',
+      severity: 'error',
+      message: `Network request failed for ${normalizedPath || path}`,
+      context: {
+        path: normalizedPath || path,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    throw error;
+  }
   if (
     response.status === 401 &&
     !isRefreshRequest
@@ -157,7 +179,7 @@ export async function clientRequest<T>(
       unauthorizedRequestCount += 1;
       if (unauthorizedRequestCount >= UNAUTHORIZED_THRESHOLD) {
         unauthorizedRequestCount = 0;
-        await forceLogoutAfterRepeatedUnauthorized();
+        await forceLogoutAfterRepeatedUnauthorized(normalizedPath);
       }
     } else {
       unauthorizedRequestCount = 0;
@@ -214,6 +236,14 @@ async function tryRefresh() {
     return response.ok;
   } catch (err) {
     console.error('Refresh attempt failed', err);
+    void reportTelemetryEvent({
+      type: 'NETWORK_ERROR',
+      severity: 'warn',
+      message: 'Refresh request failed',
+      context: {
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
     return false;
   }
 }

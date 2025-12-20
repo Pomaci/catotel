@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+node_modules
+**/node_modules
+dist
+**/dist
+.turbo
+.next
+pnpm-lock.yaml.*.backup
+*.log
+tmp
+scratch
+logs

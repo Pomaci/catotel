@@ -18,9 +18,15 @@
     "dev:mobile": "pnpm --filter catotel-mobile run dev",
     "lint": "pnpm -r --if-present run lint",
     "test": "pnpm -r --if-present run test",
-    "build": "pnpm -r --if-present run build"
+    "build": "pnpm -r --if-present run build",
+    "changeset": "changeset",
+    "changeset:status": "changeset status --since=origin/main",
+    "check:openapi-breaking": "node ./tooling/scripts/check-openapi-breaking-change.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@changesets/changelog-git": "^0.2.1",
+    "@changesets/cli": "^2.29.8",
+    "concurrently": "^9.1.2",
+    "openapi-diff": "^0.24.1"
   }
 }

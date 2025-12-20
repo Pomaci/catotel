@@ -12,39 +12,221 @@ on:
         default: false
 
 jobs:
+  lint:
+    name: Lint (${{ matrix.package.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: catotel-api
+            label: API
+          - name: catotel-dashboard
+            label: Dashboard
+          - name: catotel-mobile
+            label: Mobile
+          - name: '@catotel/api-client'
+            label: API Client
+          - name: '@catotel/contracts'
+            label: Contracts
+          - name: '@catotel/i18n'
+            label: I18n
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run lint
+        run: pnpm --filter "${{ matrix.package.name }}" run lint --if-present
+
+  typecheck:
+    name: Typecheck (${{ matrix.package.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: catotel-api
+            label: API
+          - name: catotel-dashboard
+            label: Dashboard
+          - name: catotel-mobile
+            label: Mobile
+          - name: '@catotel/api-client'
+            label: API Client
+          - name: '@catotel/contracts'
+            label: Contracts
+          - name: '@catotel/i18n'
+            label: I18n
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run typecheck
+        run: pnpm --filter "${{ matrix.package.name }}" run typecheck --if-present
+
+  unit-tests:
+    name: Unit Tests (${{ matrix.package.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: catotel-api
+            label: API
+          - name: catotel-dashboard
+            label: Dashboard
+          - name: catotel-mobile
+            label: Mobile
+          - name: '@catotel/api-client'
+            label: API Client
+          - name: '@catotel/contracts'
+            label: Contracts
+          - name: '@catotel/i18n'
+            label: I18n
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run unit tests
+        run: pnpm --filter "${{ matrix.package.name }}" run test --if-present
+
   openapi-client:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
       - name: Clean leftover artifacts
         run: |
           rm -rf catotel-api/dist
           rm -rf catotel-dashboard/.next
           rm -rf logs
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: npm
-          cache-dependency-path: |
-            catotel-api/package-lock.json
-            catotel-clients/api-client/package-lock.json
-      - name: Install API deps
-        working-directory: catotel-api
-        run: npm ci
+      - name: Install workspace dependencies
+        run: pnpm install --filter catotel-api... --filter @catotel/api-client... --frozen-lockfile
       - name: Generate OpenAPI schema
-        working-directory: catotel-api
-        run: npm run openapi:json
-      - name: Install API client deps
-        working-directory: catotel-clients/api-client
-        run: npm ci
+        run: pnpm --filter catotel-api run openapi:json
+      - name: Enforce OpenAPI breaking-change discipline
+        run: pnpm run check:openapi-breaking
+        env:
+          OPENAPI_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
       - name: Regenerate API client
-        working-directory: catotel-clients/api-client
-        run: npm run generate
+        run: pnpm --filter @catotel/api-client run generate
+      - name: Build API client
+        run: pnpm --filter @catotel/api-client run build
       - name: Fail if OpenAPI artifacts are out of date
         run: git diff --exit-code
 
+  api-migration-smoke:
+    needs: [lint, typecheck, unit-tests]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: catotel_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - name: Install API dependencies
+        run: pnpm install --filter catotel-api... --frozen-lockfile
+      - name: Prisma migrate
+        run: pnpm --filter catotel-api run prisma:deploy
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
+      - name: Seed smoke data
+        run: pnpm --filter catotel-api run seed:e2e
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
+          E2E_ADMIN_EMAIL: admin@catotel.test
+          E2E_ADMIN_PASSWORD: Admin123!
+      - name: Build API
+        run: pnpm --filter catotel-api run build
+      - name: Launch API and verify health
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
+          ACCESS_TOKEN_SECRET: e2e_access_secret_please_change
+          REFRESH_TOKEN_SECRET: e2e_refresh_secret_please_change
+          JWT_ISSUER: catotel-e2e
+          JWT_AUDIENCE: catotel-dashboard
+          PORT: 3333
+          NODE_ENV: production
+        run: |
+          pnpm --filter catotel-api run start:prod > api-smoke.log 2>&1 &
+          echo $! > api-smoke.pid
+          for i in {1..30}; do
+            if curl -sf http://127.0.0.1:3333/health > /dev/null; then
+              curl -sf http://127.0.0.1:3333/health
+              SUCCESS=1
+              break
+            fi
+            sleep 2
+          done
+          if [ -z "$SUCCESS" ]; then
+            echo "API failed to become healthy in time"
+            cat api-smoke.log || true
+            exit 1
+          fi
+      - name: Dump API logs on failure
+        if: failure()
+        run: cat api-smoke.log
+      - name: Shutdown API
+        if: always()
+        run: |
+          if [ -f api-smoke.pid ]; then
+            kill $(cat api-smoke.pid) || true
+            rm -f api-smoke.pid
+          fi
+
   web-playwright:
-    needs: openapi-client
+    needs:
+      - lint
+      - typecheck
+      - unit-tests
+      - openapi-client
+      - api-migration-smoke
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -67,43 +249,33 @@ jobs:
           rm -rf catotel-api/dist
           rm -rf catotel-dashboard/.next
           rm -rf logs
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
-          cache: npm
-          cache-dependency-path: |
-            catotel-dashboard/package-lock.json
-            catotel-api/package-lock.json
-      - name: Install API deps
-        working-directory: catotel-api
-        run: npm install
+          cache: pnpm
+      - name: Install workspace dependencies
+        run: pnpm install --filter catotel-api... --filter catotel-dashboard... --frozen-lockfile
       - name: Prisma migrate
-        working-directory: catotel-api
-        run: npx prisma migrate deploy
+        run: pnpm --filter catotel-api run prisma:deploy
         env:
           DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
       - name: Seed admin user for E2E
-        working-directory: catotel-api
-        run: npm run seed:e2e
+        run: pnpm --filter catotel-api run seed:e2e
         env:
           DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
           E2E_ADMIN_EMAIL: admin@catotel.test
           E2E_ADMIN_PASSWORD: Admin123!
       - name: Build API
-        working-directory: catotel-api
-        run: npm run build
-      - name: Install dashboard deps
-        working-directory: catotel-dashboard
-        run: npm install
+        run: pnpm --filter catotel-api run build
       - name: Install Playwright browsers
-        working-directory: catotel-dashboard
-        run: npx playwright install --with-deps
+        run: pnpm --filter catotel-dashboard exec playwright install --with-deps
       - name: Build dashboard
-        working-directory: catotel-dashboard
-        run: npm run build
+        run: pnpm --filter catotel-dashboard run build
       - name: Run Playwright end-to-end
-        working-directory: catotel-dashboard
-        run: npm run test:e2e:web:ci:full
+        run: pnpm --filter catotel-dashboard run test:e2e:web:ci:full
         env:
           DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/catotel_e2e
           ACCESS_TOKEN_SECRET: e2e_access_secret_please_change
@@ -123,6 +295,9 @@ jobs:
         working-directory: catotel-mobile
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
@@ -131,8 +306,8 @@ jobs:
           brew tap wix/brew
           brew install applesimutils
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --filter catotel-mobile... --frozen-lockfile
       - name: Install Expo CLI
         run: npm install -g expo-cli
       - name: Run Detox (iOS)
-        run: npm run test:e2e:mobile
+        run: pnpm --filter catotel-mobile run test:e2e:mobile

@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import clsx from "clsx";
 import {
   AlertCircle,
@@ -21,16 +24,19 @@ import {
   X,
 } from "lucide-react";
 import { AdminApi, type PricingSettingsResponse, type AdminAddonService } from "@/lib/api/admin";
+import { useAdminUsers, useCreateManagedUser, useUpdateUserRole } from "@/lib/hooks/useAdminUsers";
 import type { UpdateRoomTypePayload } from "@/lib/api/payloads";
 import type { RoomType } from "@/types/hotel";
+import { USER_ROLES, type UserRole } from "@/types/enums";
+import type { AdminUser } from "@/types/user";
 
 type SettingsTab = "general" | "pricing" | "notifications" | "roles";
 
 const tabItems: { id: SettingsTab; label: string; description: string; comingSoon?: boolean }[] = [
-  { id: "general", label: "Genel", description: "Otel kimliği ve iletişim" },
-  { id: "pricing", label: "Fiyatlandırma", description: "Oda tipi fiyatları" },
-  { id: "notifications", label: "Bildirimler", description: "Email & SMS şablonları" },
-  { id: "roles", label: "Kullanıcı & Roller", description: "Yakında", comingSoon: true },
+  { id: "general", label: "Genel", description: "Otel kimligi ve iletisim" },
+  { id: "pricing", label: "Fiyatlandirma", description: "Oda tipi fiyatlari" },
+  { id: "notifications", label: "Bildirimler", description: "Email & SMS sablonlari" },
+  { id: "roles", label: "Ekip & Roller", description: "Personel ve yetki yonetimi" },
 ];
 
 type GeneralFormValues = {
@@ -821,7 +827,7 @@ export default function SettingsPage() {
           {activeTab === "notifications" && (
             <NotificationSettingsCard emailTemplates={emailTemplates} smsTemplates={smsTemplates} onEdit={openTemplateModal} />
           )}
-          {activeTab === "roles" && <RolesPlaceholderCard />}
+          {activeTab === "roles" && <RolesSettingsCard enabled />}
         </div>
       </div>
 
@@ -1553,19 +1559,355 @@ function PricingSettingsCard({
     </SettingsCard>
   );
 }
-function RolesPlaceholderCard() {
+const MANAGED_ROLE_VALUES = ["ADMIN", "MANAGER", "STAFF"] as const;
+
+const createUserSchema = z.object({
+  email: z.string().trim().email("Gecerli email girin"),
+  password: z.string().min(6, "Sifre en az 6 karakter olmali"),
+  name: z.string().trim().max(120, "Ad 120 karakterden uzun olamaz").optional().or(z.literal("")),
+  role: z.enum(MANAGED_ROLE_VALUES),
+});
+
+type CreateUserForm = z.infer<typeof createUserSchema>;
+
+function RolesSettingsCard({ enabled = true }: { enabled?: boolean }) {
+  const { data: users, isLoading, isFetching, error, refetch } = useAdminUsers(enabled);
+  const createUser = useCreateManagedUser();
+  const updateUserRole = useUpdateUserRole();
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [lastTempPassword, setLastTempPassword] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+  const [pendingRoleId, setPendingRoleId] = useState<string | null>(null);
+
+  const roleOptions = useMemo<UserRole[]>(
+    () => USER_ROLES.filter((role) => role !== "CUSTOMER") as UserRole[],
+    [],
+  );
+
+  const stats = useMemo(
+    () => {
+      const list = users ?? [];
+      return {
+        total: list.length,
+        staff: list.filter((user) => user.role === "STAFF").length,
+        manager: list.filter((user) => user.role === "MANAGER").length,
+        admin: list.filter((user) => user.role === "ADMIN").length,
+      };
+    },
+    [users],
+  );
+
+  const sortedUsers = useMemo(
+    () =>
+      (users ?? []).slice().sort((a, b) => {
+        const aTime = new Date(a.createdAt).getTime();
+        const bTime = new Date(b.createdAt).getTime();
+        if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
+        return bTime - aTime;
+      }),
+    [users],
+  );
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateUserForm>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: { email: "", password: "", name: "", role: "STAFF" },
+  });
+
+  const handleCreate = handleSubmit(async (values) => {
+    setCreateError(null);
+    setCreateSuccess(null);
+    setLastTempPassword(null);
+    try {
+      const created = await createUser.mutateAsync({
+        email: values.email.trim(),
+        password: values.password,
+        name: values.name?.trim() || undefined,
+        role: values.role,
+      });
+      setCreateSuccess(values.role === "STAFF" ? "Yeni personel acildi" : "Yeni hesap olusturuldu");
+      if (created && typeof created === "object" && "tempPassword" in created && created.tempPassword) {
+        setLastTempPassword(String((created as AdminUser).tempPassword));
+      }
+      reset({ email: "", password: "", name: "", role: "STAFF" });
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : "Kullanici olusturulamadi");
+    }
+  });
+
+  const handleRoleChange = async (user: AdminUser, role: UserRole) => {
+    if (user.role === role || !roleOptions.includes(role)) return;
+    setRoleError(null);
+    setPendingRoleId(user.id);
+    try {
+      await updateUserRole.mutateAsync({ id: user.id, role });
+    } catch (err: unknown) {
+      setRoleError(err instanceof Error ? err.message : "Rol guncellenemedi");
+    } finally {
+      setPendingRoleId(null);
+    }
+  };
+
+  const loading = isLoading && !users;
+
   return (
-    <SettingsCard title="Kullanıcı & Rol Yönetimi" description="Güvenlik, yetki ve ekip yönetimi için kapsamlı araçlar yakında ekleniyor.">
-      <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-alt)] px-6 py-12 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--admin-highlight-muted)] text-peach-500">
-          <Users2 className="h-7 w-7" aria-hidden />
+    <SettingsCard
+      title="Ekip & Roller"
+      description="Admin oturumundan personel (STAFF) acip erisim seviyelerini duzenle."
+      action={
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold text-[var(--admin-text-strong)] transition hover:-translate-y-0.5 hover:border-peach-300 admin-border"
+          disabled={isFetching}
+        >
+          {isFetching ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Yenileniyor
+            </>
+          ) : (
+            "Yenile"
+          )}
+        </button>
+      }
+    >
+      {(error || roleError) && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          {error && `Kullanici listesi yuklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`}
+          {roleError && !error && roleError}
         </div>
-        <div>
-          <p className="text-lg font-semibold text-[var(--admin-text-strong)]">Kullanıcı & Rol Yönetimi Yakında</p>
-          <p className="mt-2 text-sm text-[var(--admin-muted)]">Bu özellik ilerleyen sürümlerde aktif olacaktır. Ekibinizi rollerle özelleştirebileceksiniz.</p>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <RoleStat label="Toplam" value={stats.total} />
+            <RoleStat label="Personel" value={stats.staff} tone="accent" />
+            <RoleStat label="Yonetici" value={stats.manager} />
+            <RoleStat label="Admin" value={stats.admin} />
+          </div>
+
+          <div className="space-y-3">
+            {loading &&
+              Array.from({ length: 3 }).map((_, index) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <div key={index} className="animate-pulse rounded-2xl border bg-[var(--admin-surface-alt)] p-4 admin-border">
+                  <div className="mb-3 h-4 w-1/2 rounded bg-[var(--admin-border)]" />
+                  <div className="flex items-center gap-2">
+                    <span className="h-6 w-20 rounded-full bg-[var(--admin-border)]" />
+                    <span className="h-6 w-16 rounded-full bg-[var(--admin-border)]" />
+                  </div>
+                </div>
+              ))}
+
+            {!loading && sortedUsers.length === 0 && (
+              <div className="rounded-2xl border border-dashed bg-[var(--admin-surface-alt)] px-4 py-6 text-sm font-semibold text-[var(--admin-muted)] admin-border">
+                Henuz yonetilen kullanici yok. Admin hesabindan STAFF acarak operasyonu dagit.
+              </div>
+            )}
+
+            {!loading &&
+              sortedUsers.map((user) => (
+                <RoleUserRow
+                  key={user.id}
+                  user={user}
+                  roleOptions={roleOptions}
+                  pending={pendingRoleId === user.id && updateUserRole.isPending}
+                  onChangeRole={handleRoleChange}
+                />
+              ))}
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-[var(--admin-surface)] to-[var(--admin-surface-alt)] p-6 shadow-sm admin-border">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-peach-200/30 blur-2xl" aria-hidden />
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--admin-highlight-muted)] text-peach-500">
+              <Users2 className="h-5 w-5" aria-hidden />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Yeni hesap</p>
+              <p className="text-lg font-semibold text-[var(--admin-text-strong)]">Personel ekle</p>
+              <p className="text-xs text-[var(--admin-muted)]">STAFF rolu varsayilan olarak atanir.</p>
+            </div>
+          </div>
+
+          {createError && (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+              {createError}
+            </div>
+          )}
+          {createSuccess && (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+              {createSuccess}
+            </div>
+          )}
+          {lastTempPassword && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-dashed border-peach-200 bg-white/70 px-3 py-1 text-xs font-semibold text-peach-500">
+              <Shield className="h-4 w-4" aria-hidden />
+              Gecici sifre:
+              <code className="rounded bg-[var(--admin-surface)] px-2 py-1 text-[var(--admin-text-strong)]">
+                {lastTempPassword}
+              </code>
+            </div>
+          )}
+
+          <form className="mt-6 space-y-4" onSubmit={handleCreate}>
+            <label className="flex flex-col gap-2 text-sm font-semibold text-[var(--admin-text-strong)]">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--admin-muted)]">Email</span>
+              <input
+                type="email"
+                placeholder="personel@miaow.com"
+                className={inputClasses}
+                {...register("email")}
+              />
+              {errors.email && <span className="text-[11px] text-red-500">{errors.email.message}</span>}
+            </label>
+
+            <label className="flex flex-col gap-2 text-sm font-semibold text-[var(--admin-text-strong)]">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--admin-muted)]">Sifre</span>
+              <input
+                type="password"
+                placeholder="En az 6 karakter"
+                className={inputClasses}
+                {...register("password")}
+              />
+              {errors.password && <span className="text-[11px] text-red-500">{errors.password.message}</span>}
+            </label>
+
+            <label className="flex flex-col gap-2 text-sm font-semibold text-[var(--admin-text-strong)]">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--admin-muted)]">Isim (opsiyonel)</span>
+              <input type="text" placeholder="Isim veya departman" className={inputClasses} {...register("name")} />
+              {errors.name && <span className="text-[11px] text-red-500">{errors.name.message}</span>}
+            </label>
+
+            <label className="flex flex-col gap-2 text-sm font-semibold text-[var(--admin-text-strong)]">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--admin-muted)]">Rol</span>
+              <select className={`${inputClasses} uppercase`} {...register("role")}>
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+              {errors.role && <span className="text-[11px] text-red-500">{errors.role.message}</span>}
+            </label>
+
+            <button
+              type="submit"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-peach-400 px-5 py-3 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 disabled:opacity-60"
+              disabled={isSubmitting || createUser.isPending}
+            >
+              {isSubmitting || createUser.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Olusturuluyor
+                </>
+              ) : (
+                <>
+                  <PlusCircle className="h-4 w-4" aria-hidden />
+                  Personel olustur
+                </>
+              )}
+            </button>
+          </form>
         </div>
       </div>
     </SettingsCard>
+  );
+}
+
+function RoleStat({ label, value, tone = "muted" }: { label: string; value: number; tone?: "muted" | "accent" | "alert" }) {
+  const toneClass =
+    tone === "accent"
+      ? "border-peach-200 bg-[var(--admin-highlight-muted)] text-peach-500"
+      : tone === "alert"
+      ? "border-red-200 bg-red-50 text-red-600"
+      : "border-[var(--admin-border)] bg-[var(--admin-surface-alt)] text-[var(--admin-muted)]";
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${toneClass}`}>
+      {label}
+      <span className="text-sm text-[var(--admin-text-strong)]">{value}</span>
+    </span>
+  );
+}
+
+function RoleUserRow({
+  user,
+  roleOptions,
+  onChangeRole,
+  pending,
+}: {
+  user: AdminUser;
+  roleOptions: UserRole[];
+  onChangeRole: (user: AdminUser, role: UserRole) => void;
+  pending: boolean;
+}) {
+  const createdLabel = (() => {
+    const parsed = new Date(user.createdAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString("tr-TR");
+  })();
+
+  return (
+    <div className="rounded-2xl border bg-[var(--admin-surface-alt)] p-4 text-sm font-semibold text-[var(--admin-text-strong)] shadow-sm admin-border">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-base font-semibold">{user.email}</p>
+          <p className="text-xs text-[var(--admin-muted)]">
+            {(user.name?.trim() || "Isim belirtilmedi") + (createdLabel ? ` · ${createdLabel}` : "")}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-[var(--admin-highlight-muted)] px-3 py-1 text-[11px] font-semibold text-peach-500">
+            {user.role}
+          </span>
+          <select
+            value={user.role}
+            onChange={(event) => onChangeRole(user, event.target.value as UserRole)}
+            className="rounded-full border bg-white px-3 py-1 text-xs font-semibold text-[var(--admin-text-strong)] outline-none transition hover:border-peach-200 focus:border-peach-300"
+            disabled={pending}
+          >
+            {roleOptions.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+          {pending && <Loader2 className="h-4 w-4 animate-spin text-peach-400" aria-hidden />}
+        </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[var(--admin-muted)]">
+        <RoleTag
+          label={user.hasStaffProfile ? "Personel profili var" : "Personel profili yok"}
+          tone={user.hasStaffProfile ? "success" : "muted"}
+        />
+        <RoleTag
+          label={user.hasCustomerProfile ? "Musteri profili var" : "Musteri profili yok"}
+          tone={user.hasCustomerProfile ? "accent" : "muted"}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RoleTag({ label, tone }: { label: string; tone: "accent" | "success" | "muted" }) {
+  const toneClass =
+    tone === "accent"
+      ? "border-lagoon-200 text-lagoon-600"
+      : tone === "success"
+      ? "border-emerald-200 text-emerald-600"
+      : "border-[var(--admin-border)] text-[var(--admin-muted)]";
+  return (
+    <span className={`rounded-full border px-3 py-1 font-semibold ${toneClass}`}>
+      {label}
+    </span>
   );
 }
 
@@ -2031,3 +2373,7 @@ function TemplateModal({ channel, template, onClose, onSave }: TemplateModalProp
     </div>
   );
 }
+
+
+
+

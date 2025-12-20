@@ -249,4 +249,50 @@ describe('ReservationsService', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  describe('pricing calculations', () => {
+    const pricing = {
+      multiCatDiscountEnabled: true,
+      multiCatDiscounts: [
+        { catCount: 2, discountPercent: 10 },
+        { catCount: 3, discountPercent: 15 },
+      ],
+      sharedRoomDiscountEnabled: true,
+      sharedRoomDiscounts: [{ remainingCapacity: 1, discountPercent: 5 }],
+      longStayDiscountEnabled: true,
+      longStayDiscounts: [{ minNights: 7, discountPercent: 20 }],
+    };
+
+    it('applies multi-cat and shared room discounts before add-ons', () => {
+      const calculator = (service as any).calculateTotalPrice.bind(service);
+      const total = calculator(
+        decimal('300'),
+        2,
+        [{ unitPrice: decimal('20'), quantity: 1 }],
+        { capacity: 3, catCount: 2, allowRoomSharing: true },
+        pricing,
+      ) as Prisma.Decimal;
+
+      expect(total.equals(decimal('360'))).toBe(true);
+    });
+
+    it('caps discounts to prevent negative totals even with aggressive tiers', () => {
+      const calculator = (service as any).calculateTotalPrice.bind(service);
+      const aggressivePricing = {
+        ...pricing,
+        multiCatDiscounts: [{ catCount: 3, discountPercent: 70 }],
+        longStayDiscounts: [{ minNights: 1, discountPercent: 40 }],
+      };
+
+      const total = calculator(
+        decimal('200'),
+        3,
+        [],
+        { capacity: 3, catCount: 3, allowRoomSharing: false },
+        aggressivePricing,
+      ) as Prisma.Decimal;
+
+      expect(total.equals(decimal('0'))).toBe(true);
+    });
+  });
 });
