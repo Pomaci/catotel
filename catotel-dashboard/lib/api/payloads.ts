@@ -4,7 +4,7 @@ import type {
   UpdateCustomerDto,
   UpdateTaskStatusDto,
 } from '@catotel/api-client';
-import type { ReservationStatus } from '@/types/enums';
+import type { PaymentMethod, ReservationStatus } from '@/types/enums';
 import type { CheckInForm, CheckOutForm } from '@/types/hotel';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -48,6 +48,12 @@ export type ReservationUpdatePayload = Partial<ReservationRequestPayload> & {
 };
 
 export type TaskStatusUpdatePayload = UpdateTaskStatusDto;
+
+export type CreatePaymentPayload = {
+  amount: number;
+  method: PaymentMethod;
+  transactionRef?: string;
+};
 
 export type CreateRoomTypePayload = {
   name: string;

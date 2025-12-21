@@ -18,6 +18,7 @@ import type {
   ReservationRequestPayload,
   ReservationUpdatePayload,
   TaskStatusUpdatePayload,
+  CreatePaymentPayload,
   UpdateCatPayload,
 } from '@/lib/api/payloads';
 
@@ -112,4 +113,13 @@ export const HotelApi = {
       { csrf: true },
     ),
   listAddonServices: () => clientRequest<AddonService[]>('/api/addon-services'),
+  addReservationPayment: (id: string, payload: CreatePaymentPayload) =>
+    clientRequest<Reservation>(
+      `/api/reservations/${id}/payments`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { csrf: true },
+    ),
 };

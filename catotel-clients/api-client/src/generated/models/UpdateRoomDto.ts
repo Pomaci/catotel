@@ -4,16 +4,11 @@
 /* eslint-disable */
 export type UpdateRoomDto = {
     name?: string;
+    /**
+     * Room type id to link pricing/capacity
+     */
+    roomTypeId?: string;
     description?: string;
-    capacity?: number;
-    /**
-     * Nightly rate in USD
-     */
-    nightlyRate?: number;
-    /**
-     * JSON string of amenities
-     */
-    amenities?: Record<string, any>;
     isActive?: boolean;
 };
 

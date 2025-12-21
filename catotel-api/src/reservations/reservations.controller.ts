@@ -15,6 +15,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { ReservationStatus, UserRole } from '@prisma/client';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { RequestUser } from 'src/types/request-user';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 
 @ApiTags('Reservations')
 @ApiBearerAuth('access-token')
@@ -53,5 +54,15 @@ export class ReservationsController {
     @Body() dto: UpdateReservationDto,
   ) {
     return this.reservations.update(id, req.user!.role!, dto);
+  }
+
+  @Post(':id/payments')
+  @Roles(UserRole.STAFF, UserRole.MANAGER, UserRole.ADMIN)
+  addPayment(
+    @Req() req: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: CreatePaymentDto,
+  ) {
+    return this.reservations.recordPayment(id, req.user!.role!, dto);
   }
 }

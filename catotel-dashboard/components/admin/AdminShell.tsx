@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
@@ -31,21 +31,35 @@ type NavItem = {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
-const navItems: NavItem[] = [
+const adminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/admin", icon: LayoutGrid },
   { label: "Rezervasyonlar", href: "/dashboard/reservations", icon: CalendarCheck2 },
-  { label: "Müşteriler", href: "/dashboard/customers", icon: Users2 },
+  { label: "Musteriler", href: "/dashboard/customers", icon: Users2 },
   { label: "Kediler", href: "/dashboard/cats", icon: Cat },
   { label: "Odalar", href: "/dashboard/rooms", icon: Home },
-  { label: "Günlük Operasyon", href: "/dashboard/tasks", icon: ClipboardList },
+  { label: "Gunluk Operasyon", href: "/dashboard/tasks", icon: ClipboardList },
   { label: "Raporlar", href: "/dashboard/admin/reports", icon: BarChart3 },
   { label: "Ayarlar", href: "/dashboard/security", icon: Settings2 },
 ];
 
+const staffNavItems: NavItem[] = [
+  { label: "Personel Paneli", href: "/dashboard/staff", icon: LayoutGrid },
+  { label: "Rezervasyonlar", href: "/dashboard/reservations", icon: CalendarCheck2 },
+  { label: "Gorevler", href: "/dashboard/tasks", icon: ClipboardList },
+];
+
+const buildNavItems = (role?: string | null): NavItem[] => {
+  if (role === "STAFF") return staffNavItems;
+  return adminNavItems;
+};
+
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const role = user?.role ?? "ADMIN";
   const [mode, setMode] = useState<ThemeMode>("light");
   const [mounted, setMounted] = useState(false);
+  const navItems = useMemo(() => buildNavItems(role), [role]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -73,24 +87,31 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className={clsx("admin-shell flex min-h-screen text-base")} data-theme={mode}>
-      <AdminSidebar mode={mode} onToggleTheme={toggleMode} pathname={pathname} />
+      <AdminSidebar
+        mode={mode}
+        onToggleTheme={toggleMode}
+        pathname={pathname}
+        navItems={navItems}
+        role={role}
+      />
 
       <div className="flex min-h-screen flex-1 flex-col">
-        <AdminHeader mode={mode} onToggleTheme={toggleMode} />
+        <AdminHeader mode={mode} onToggleTheme={toggleMode} role={role} />
         <main className="flex-1 overflow-y-auto px-6 py-8 lg:px-10">{children}</main>
       </div>
     </div>
   );
 }
 
-function AdminHeader({ mode, onToggleTheme }: { mode: ThemeMode; onToggleTheme: () => void }) {
+function AdminHeader({ mode, onToggleTheme, role }: { mode: ThemeMode; onToggleTheme: () => void; role: string }) {
   const { logout, user } = useAuth();
   const nameCandidate = user?.name as unknown;
   const emailCandidate = user?.email;
   const resolvedName =
-    typeof nameCandidate === "string" && nameCandidate.trim().length > 0 ? nameCandidate : "Yönetici";
+    typeof nameCandidate === "string" && nameCandidate.trim().length > 0 ? nameCandidate : "Yonetici";
   const resolvedEmail =
     typeof emailCandidate === "string" && emailCandidate.trim().length > 0 ? emailCandidate : "onur@miaow.app";
+  const panelLabel = role === "STAFF" ? "Operasyon Paneli" : "Admin Paneli";
   return (
     <header className="flex h-20 items-center justify-between border-b bg-[var(--admin-surface-alt)] px-6 lg:px-10 admin-border">
       <div className="flex items-center gap-3">
@@ -99,7 +120,7 @@ function AdminHeader({ mode, onToggleTheme }: { mode: ThemeMode; onToggleTheme: 
         </div>
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.3em] admin-muted">Miaow Hotel</p>
-          <p className="text-xl font-semibold">Admin Panel</p>
+          <p className="text-xl font-semibold">{panelLabel}</p>
         </div>
       </div>
       <div className="flex items-center gap-3 lg:gap-4">
@@ -122,18 +143,22 @@ type SidebarProps = {
   mode: ThemeMode;
   onToggleTheme: () => void;
   pathname: string;
+  navItems: NavItem[];
+  role: string;
 };
 
-function AdminSidebar({ mode, onToggleTheme, pathname }: SidebarProps) {
+function AdminSidebar({ mode, onToggleTheme, pathname, navItems, role }: SidebarProps) {
+  const brandTitle = role === "STAFF" ? "Miaow Ops" : "Miaow Admin";
+  const brandSubtitle = role === "STAFF" ? "Crew" : "Control";
   return (
-    <aside className="admin-sidebar hidden w-64 flex-col lg:flex" aria-label="Sol menü">
+    <aside className="admin-sidebar hidden w-64 flex-col lg:flex" aria-label="Sol menu">
       <div className="flex items-center gap-3 border-b px-6 py-5 admin-border">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--admin-highlight)] text-peach-500">
           <Cat className="h-4 w-4" aria-hidden />
         </div>
         <div>
-          <p className="text-sm font-semibold">Miaow Admin</p>
-          <p className="text-xs uppercase tracking-[0.3em] admin-muted">Control</p>
+          <p className="text-sm font-semibold">{brandTitle}</p>
+          <p className="text-xs uppercase tracking-[0.3em] admin-muted">{brandSubtitle}</p>
         </div>
       </div>
 
@@ -169,11 +194,11 @@ function AdminSidebar({ mode, onToggleTheme, pathname }: SidebarProps) {
       <div className="mt-auto space-y-4 px-4 pb-6">
         <div className="admin-surface space-y-3 px-4 py-4" data-variant="flat">
           <p className="text-sm font-semibold">Tema</p>
-          <p className="text-xs admin-muted">Gündüz / gece arasında hızlıca geçiş yap.</p>
+          <p className="text-xs admin-muted">Gunduz / gece arasinda hizlica gecis yap.</p>
           <ThemeToggle mode={mode} onToggle={onToggleTheme} dense />
         </div>
         <div className="flex items-center justify-between rounded-2xl px-4 py-3 text-xs font-medium admin-muted">
-          <span>Panel sürümü</span>
+          <span>Panel surumu</span>
           <span className="flex items-center gap-2 font-semibold text-peach-400">
             <PawPrint className="h-4 w-4" aria-hidden />
             v1.0.0
@@ -201,7 +226,7 @@ function ThemeToggle({
         "inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] font-semibold transition focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border",
         dense ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm",
       )}
-      aria-label="Tema değiştir"
+      aria-label="Tema degistir"
     >
       <Sun
         className={clsx(
@@ -282,7 +307,7 @@ function UserMenu({ name, email, onLogout }: { name: string; email: string; onLo
             type="button"
             className="w-full rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--admin-highlight-muted)] hover:text-peach-500"
           >
-            Hesap ayarları
+            Hesap ayarlari
           </button>
           <div className="my-2 h-px bg-[var(--admin-border)]" />
           <button
@@ -293,7 +318,7 @@ function UserMenu({ name, email, onLogout }: { name: string; email: string; onLo
               await onLogout();
             }}
           >
-            Çıkış yap
+            Cikis yap
           </button>
         </div>
       )}

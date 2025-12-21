@@ -38,119 +38,40 @@ import {
 import { AdminApi, type AdminCatDetail } from "@/lib/api/admin";
 import { Spinner } from "@/components/ui/Spinner";
 
+type VaccineItem = { name: string; date: string; next: string; status: HealthStatus };
+
+type ChronicCondition = { name: string; note: string };
+
+type MedicationItem = {
+  name: string;
+  dosage: string;
+  freq: string;
+  time: string;
+  last: string;
+  owner: string;
+  status: HealthStatus;
+};
+
+type BehaviorSummaryItem = { label: string; value: string; icon: typeof PawPrint };
+
+type BehaviorNoteItem = { title: string; text: string; author: string; datetime: string };
+
+type ReservationHistoryItem = {
+  id: string;
+  dateRange: string;
+  room: string;
+  customer: string;
+  status: ReservationStatusKey;
+  total: string;
+};
+
+type FileItem = { name: string; date: string; type: 'image' | 'pdf' | 'doc' | 'txt' };
+
+type HealthStatus = 'g??ncel' | 'yakla?Y??yor' | 'gecikmi?Y' | 'bug??n' | 'tamamland??';
+
+type ReservationStatusKey = 'check-in' | 'check-out' | 'iptal' | 'onayland??';
+
 type TabKey = "health" | "behavior" | "reservations" | "files";
-
-const vaccineSchedule = [
-  { name: "Karma Aşı", date: "12.01.2024", next: "12.01.2025", status: "güncel" as const },
-  { name: "Kuduz", date: "12.01.2024", next: "12.01.2025", status: "yaklaşıyor" as const },
-  { name: "Lösemi (FeLV)", date: "15.07.2023", next: "15.07.2024", status: "gecikmiş" as const },
-];
-
-const chronicConditions = [
-  { name: "Böbrek hassasiyeti", note: "İdrar testi 6 ayda bir kontrol edilecek." },
-  { name: "Deri alerjisi", note: "Tüy bakımı sırasında hassas bölgeler atlanmasın." },
-];
-
-const medicationPlan = [
-  {
-    name: "Renal Support",
-    dosage: "1/2 tablet",
-    freq: "Günde 1 defa",
-    time: "09:00",
-    last: "12.05.2024",
-    owner: "Elif (veteriner)",
-    status: "bugün" as const,
-  },
-  {
-    name: "Probiyotik",
-    dosage: "1 ölçek",
-    freq: "Günde 2 defa",
-    time: "09:00 / 21:00",
-    last: "11.05.2024",
-    owner: "Gizem",
-    status: "gecikmiş" as const,
-  },
-  {
-    name: "Vitamin Paste",
-    dosage: "Bezelye tanesi",
-    freq: "Günde 1 defa",
-    time: "18:00",
-    last: "10.05.2024",
-    owner: "Onur",
-    status: "tamamlandı" as const,
-  },
-];
-
-const behaviorSummary = [
-  { label: "Diğer kedilerle ilişkisi", value: "Sakin, uyumlu", icon: PawPrint },
-  { label: "Agresyon", value: "Ziyaretçiye karşı çekingen", icon: Shield },
-  { label: "Korkular", value: "Yüksek ses", icon: AlertTriangle },
-  { label: "Özel not", value: "Yeni ortama alışması 1–2 gün sürebilir.", icon: NotebookPen },
-];
-
-const behaviorNotes = [
-  {
-    title: "Oyun sırasında ürkek davrandı",
-    text: "Topla oynarken tırnak kesimi sonrası tedirgin oldu.",
-    author: "Gizem",
-    datetime: "12 Mayıs 2024 · 10:20",
-  },
-  {
-    title: "Ziyaretçi tepkisi",
-    text: "Yeni gelen müşterilere yaklaşırken önce koklamayı tercih ediyor.",
-    author: "Onur",
-    datetime: "08 Mayıs 2024 · 18:05",
-  },
-  {
-    title: "Veteriner gözlemi",
-    text: "Muayene sırasında sakin, taşıma çantasına alışık.",
-    author: "Elif (veteriner)",
-    datetime: "02 Mayıs 2024 · 09:45",
-  },
-];
-
-const reservationHistory = [
-  {
-    id: "rz-2024-0141",
-    dateRange: "12 Mayıs → 17 Mayıs",
-    room: "Oda 204 (Deluxe)",
-    customer: "Ayşe Yılmaz",
-    status: "check-in" as const,
-    total: "2.750 TL",
-  },
-  {
-    id: "rz-2024-0108",
-    dateRange: "02 Nisan → 06 Nisan",
-    room: "Oda 108 (Comfort)",
-    customer: "Ayşe Yılmaz",
-    status: "onaylandı" as const,
-    total: "1.980 TL",
-  },
-  {
-    id: "rz-2024-0082",
-    dateRange: "18 Şubat → 22 Şubat",
-    room: "Oda 305 (Suite)",
-    customer: "Ayşe Yılmaz",
-    status: "check-out" as const,
-    total: "2.240 TL",
-  },
-  {
-    id: "rz-2023-1201",
-    dateRange: "04 Aralık → 07 Aralık",
-    room: "Oda 110 (Comfort)",
-    customer: "Ayşe Yılmaz",
-    status: "iptal" as const,
-    total: "1.150 TL",
-  },
-];
-
-const fileItems = [
-  { name: "Aşı Kartı - 2024.jpg", date: "12 Mayıs 2024", type: "image" as const },
-  { name: "Kan Tahlili.pdf", date: "02 Nisan 2024", type: "pdf" as const },
-  { name: "Veteriner Raporu.docx", date: "18 Şubat 2024", type: "doc" as const },
-  { name: "Röntgen - Bacak.png", date: "14 Ocak 2024", type: "image" as const },
-  { name: "Mamaya dair notlar.txt", date: "10 Ocak 2024", type: "txt" as const },
-];
 
 
 export default function CatDetailPage({ params }: { params: { id: string } }) {
@@ -170,6 +91,13 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
     const dateLabel = new Intl.DateTimeFormat("tr-TR").format(birth);
     return { label: `Doğum: ${dateLabel}`, age: ageYears };
   }, [data?.birthDate]);
+  const vaccineSchedule = useMemo<VaccineItem[]>(() => [], []);
+  const chronicConditions = useMemo<ChronicCondition[]>(() => [], []);
+  const medicationPlan = useMemo<MedicationItem[]>(() => [], []);
+  const behaviorSummary = useMemo<BehaviorSummaryItem[]>(() => [], []);
+  const behaviorNotes = useMemo<BehaviorNoteItem[]>(() => [], []);
+  const reservationHistory = useMemo<ReservationHistoryItem[]>(() => [], []);
+  const fileItems = useMemo<FileItem[]>(() => [], []);
 
   if (isLoading) {
     return (
@@ -366,58 +294,83 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="pt-4">
-          {activeTab === "health" && <HealthTab />}
-          {activeTab === "behavior" && <BehaviorTab />}
-          {activeTab === "reservations" && <ReservationsTab />}
-          {activeTab === "files" && <FilesTab />}
+          {activeTab === "health" && (
+            <HealthTab
+              vaccineSchedule={vaccineSchedule}
+              chronicConditions={chronicConditions}
+              medicationPlan={medicationPlan}
+            />
+          )}
+          {activeTab === "behavior" && (
+            <BehaviorTab behaviorSummary={behaviorSummary} behaviorNotes={behaviorNotes} />
+          )}
+          {activeTab === "reservations" && (
+            <ReservationsTab reservationHistory={reservationHistory} />
+          )}
+          {activeTab === "files" && <FilesTab fileItems={fileItems} />}
         </div>
       </div>
     </div>
   );
 }
 
-function HealthTab() {
+function HealthTab({
+  vaccineSchedule,
+  chronicConditions,
+  medicationPlan,
+}: {
+  vaccineSchedule: VaccineItem[];
+  chronicConditions: ChronicCondition[];
+  medicationPlan: MedicationItem[];
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <section className="lg:col-span-2 space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-5 admin-border">
         <header className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Aşı Takvimi</p>
-            <p className="text-sm text-[var(--admin-muted)]">Uygulanan ve yaklaşan aşılar</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Asi Takvimi</p>
+            <p className="text-sm text-[var(--admin-muted)]">Uygulanan ve yaklasan asilar</p>
           </div>
           <button className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border">
             <Plus className="h-4 w-4" aria-hidden />
-            Aşı Ekle
+            Asi Ekle
           </button>
         </header>
         <div className="space-y-2">
-          {vaccineSchedule.map((item) => (
-            <div
-              key={item.name}
-              className="group flex items-center justify-between rounded-2xl border bg-[var(--admin-surface)] px-4 py-3 transition hover:-translate-y-0.5 hover:border-peach-300 admin-border"
-            >
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-peach-500/10 text-peach-500 admin-border">
-                  <BadgeCheck className="h-5 w-5" aria-hidden />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">{item.name}</p>
-                  <p className="text-xs text-[var(--admin-muted)]">
-                    Uygulama: {item.date} · Sonraki: {item.next}
-                  </p>
-                </div>
-              </div>
-              <StatusBadge status={item.status} />
+          {vaccineSchedule.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-dashed bg-[var(--admin-surface)] px-4 py-3 text-sm text-[var(--admin-muted)] admin-border">
+              <Inbox className="h-4 w-4" aria-hidden />
+              Kayit bulunmuyor.
             </div>
-          ))}
+          ) : (
+            vaccineSchedule.map((item) => (
+              <div
+                key={item.name}
+                className="group flex items-center justify-between rounded-2xl border bg-[var(--admin-surface)] px-4 py-3 transition hover:-translate-y-0.5 hover:border-peach-300 admin-border"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-peach-500/10 text-peach-500 admin-border">
+                    <BadgeCheck className="h-5 w-5" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">{item.name}</p>
+                    <p className="text-xs text-[var(--admin-muted)]">
+                      Uygulama: {item.date} / Sonraki: {item.next}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge status={item.status} />
+              </div>
+            ))
+          )}
         </div>
       </section>
 
       <section className="space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-5 admin-border">
         <header className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Kronik Sağlık Durumları</p>
-            <p className="text-sm text-[var(--admin-muted)]">Doktor notları ile birlikte</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Kronik Saglik Durumlari</p>
+            <p className="text-sm text-[var(--admin-muted)]">Doktor notlari ile birlikte</p>
           </div>
           <button className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border">
             <Plus className="h-4 w-4" aria-hidden />
@@ -427,7 +380,7 @@ function HealthTab() {
         {chronicConditions.length === 0 ? (
           <div className="flex items-center gap-2 rounded-2xl border border-dashed bg-[var(--admin-surface)] px-4 py-3 text-sm text-[var(--admin-muted)] admin-border">
             <Inbox className="h-4 w-4" aria-hidden />
-            Herhangi bir kronik hastalık kaydı bulunmuyor.
+            Herhangi bir kronik hastalik kaydi bulunmuyor.
           </div>
         ) : (
           <div className="space-y-3">
@@ -439,7 +392,7 @@ function HealthTab() {
                     <p className="text-[var(--admin-muted)]">{item.note}</p>
                   </div>
                   <div className="inline-flex items-center gap-2 text-[var(--admin-muted)]">
-                    <button className="rounded-full p-1 transition hover:text-peach-500" aria-label="Düzenle">
+                    <button className="rounded-full p-1 transition hover:text-peach-500" aria-label="Duzenle">
                       <Edit3 className="h-4 w-4" aria-hidden />
                     </button>
                     <button className="rounded-full p-1 transition hover:text-red-500" aria-label="Sil">
@@ -456,44 +409,48 @@ function HealthTab() {
       <section className="lg:col-span-3 space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-5 admin-border">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">İlaç Programı</p>
-            <p className="text-sm text-[var(--admin-muted)]">Dozaj, sorumlu ve zaman planı</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Ilac Programi</p>
+            <p className="text-sm text-[var(--admin-muted)]">Dozaj, sorumlu ve zaman plani</p>
           </div>
           <button className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border">
             <Plus className="h-4 w-4" aria-hidden />
-            İlaç Ekle
+            Ilac Ekle
           </button>
         </header>
         <div className="overflow-hidden rounded-2xl border admin-border">
           <div className="grid grid-cols-7 bg-[var(--admin-surface)] px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-[var(--admin-muted)]">
-            <span>İlaç</span>
+            <span>Ilac</span>
             <span>Dozaj</span>
-            <span>Sıklık</span>
+            <span>Siklik</span>
             <span>Saat</span>
             <span>Son uygulama</span>
             <span>Sorumlu</span>
             <span>Durum</span>
           </div>
           <div className="divide-y divide-[var(--admin-border)] bg-[var(--admin-surface-alt)]">
-            {medicationPlan.map((item) => (
-              <div key={item.name} className="grid grid-cols-7 items-center px-4 py-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--admin-surface)] text-peach-500 admin-border">
-                    <Pill className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div>
-                    <p className="font-semibold">{item.name}</p>
-                    <p className="text-xs text-[var(--admin-muted)]">Takipte</p>
+            {medicationPlan.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-[var(--admin-muted)]">Kayit bulunmuyor.</div>
+            ) : (
+              medicationPlan.map((item) => (
+                <div key={item.name} className="grid grid-cols-7 items-center px-4 py-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--admin-surface)] text-peach-500 admin-border">
+                      <Pill className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="font-semibold">{item.name}</p>
+                      <p className="text-xs text-[var(--admin-muted)]">Takipte</p>
+                    </div>
                   </div>
+                  <span>{item.dosage}</span>
+                  <span>{item.freq}</span>
+                  <span>{item.time}</span>
+                  <span>{item.last}</span>
+                  <span>{item.owner}</span>
+                  <StatusBadge status={item.status} />
                 </div>
-                <span>{item.dosage}</span>
-                <span>{item.freq}</span>
-                <span>{item.time}</span>
-                <span>{item.last}</span>
-                <span>{item.owner}</span>
-                <StatusBadge status={item.status} />
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -501,39 +458,52 @@ function HealthTab() {
   );
 }
 
-function BehaviorTab() {
+function BehaviorTab({
+  behaviorSummary,
+  behaviorNotes,
+}: {
+  behaviorSummary: BehaviorSummaryItem[];
+  behaviorNotes: BehaviorNoteItem[];
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <section className="space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-5 admin-border">
         <header className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Davranış Özeti</p>
-            <p className="text-sm text-[var(--admin-muted)]">Hızlı okunan, ikonlu liste</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Davranis Ozeti</p>
+            <p className="text-sm text-[var(--admin-muted)]">Hizli okunan, ikonlu liste</p>
           </div>
         </header>
         <div className="space-y-2">
-          {behaviorSummary.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.label} className="flex items-center gap-3 rounded-2xl border bg-[var(--admin-surface)] px-4 py-3 text-sm admin-border">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-peach-500/10 text-peach-500 admin-border">
-                  <Icon className="h-5 w-5" aria-hidden />
-                </span>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.25em] text-[var(--admin-muted)]">{item.label}</p>
-                  <p className="font-semibold text-[var(--admin-text-strong)]">{item.value}</p>
+          {behaviorSummary.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-dashed bg-[var(--admin-surface)] px-4 py-3 text-sm text-[var(--admin-muted)] admin-border">
+              <Inbox className="h-4 w-4" aria-hidden />
+              Kayit bulunmuyor.
+            </div>
+          ) : (
+            behaviorSummary.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label} className="flex items-center gap-3 rounded-2xl border bg-[var(--admin-surface)] px-4 py-3 text-sm admin-border">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-peach-500/10 text-peach-500 admin-border">
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-[var(--admin-muted)]">{item.label}</p>
+                    <p className="font-semibold text-[var(--admin-text-strong)]">{item.value}</p>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </section>
 
       <section className="lg:col-span-2 space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-5 admin-border">
         <header className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Davranış Notları</p>
-            <p className="text-sm text-[var(--admin-muted)]">Tarih sıralı mini kartlar</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Davranis Notlari</p>
+            <p className="text-sm text-[var(--admin-muted)]">Tarih sirali mini kartlar</p>
           </div>
           <button className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border">
             <Plus className="h-4 w-4" aria-hidden />
@@ -541,40 +511,47 @@ function BehaviorTab() {
           </button>
         </header>
         <div className="space-y-3">
-          {behaviorNotes.map((note) => (
-            <article
-              key={note.title}
-              className="group rounded-2xl border bg-[var(--admin-surface)] p-4 transition hover:-translate-y-0.5 hover:border-peach-300 admin-border"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">{note.title}</p>
-                  <p className="mt-1 text-sm text-[var(--admin-text-strong)]">{note.text}</p>
-                  <p className="mt-1 text-xs text-[var(--admin-muted)]">
-                    {note.author} · {note.datetime}
-                  </p>
+          {behaviorNotes.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-dashed bg-[var(--admin-surface)] px-4 py-3 text-sm text-[var(--admin-muted)] admin-border">
+              <Inbox className="h-4 w-4" aria-hidden />
+              Kayit bulunmuyor.
+            </div>
+          ) : (
+            behaviorNotes.map((note) => (
+              <article
+                key={note.title}
+                className="group rounded-2xl border bg-[var(--admin-surface)] p-4 transition hover:-translate-y-0.5 hover:border-peach-300 admin-border"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">{note.title}</p>
+                    <p className="mt-1 text-sm text-[var(--admin-text-strong)]">{note.text}</p>
+                    <p className="mt-1 text-xs text-[var(--admin-muted)]">
+                      {note.author} / {note.datetime}
+                    </p>
+                  </div>
+                  <div className="opacity-0 transition group-hover:opacity-100">
+                    <button className="rounded-full p-1 text-[var(--admin-muted)] transition hover:text-peach-500" aria-label="Duzenle">
+                      <Edit3 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
                 </div>
-                <div className="opacity-0 transition group-hover:opacity-100">
-                  <button className="rounded-full p-1 text-[var(--admin-muted)] transition hover:text-peach-500" aria-label="Düzenle">
-                    <Edit3 className="h-4 w-4" aria-hidden />
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            ))
+          )}
         </div>
       </section>
     </div>
   );
 }
 
-function ReservationsTab() {
+function ReservationsTab({ reservationHistory }: { reservationHistory: ReservationHistoryItem[] }) {
   return (
     <section className="space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-5 admin-border">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Rezervasyon Geçmişi</p>
-          <p className="text-sm text-[var(--admin-muted)]">Tüm konaklamalar · tıklanabilir satırlar</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Rezervasyon Gecmisi</p>
+          <p className="text-sm text-[var(--admin-muted)]">Tum konaklamalar / tiklanabilir satirlar</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full bg-[var(--admin-surface)] px-3 py-1 text-xs font-semibold text-[var(--admin-muted)] admin-border">
           Toplam {reservationHistory.length} rezervasyon bulundu.
@@ -586,29 +563,37 @@ function ReservationsTab() {
             <tr>
               <th className="px-4 py-2 text-left">Tarihler</th>
               <th className="px-4 py-2 text-left">Oda</th>
-              <th className="px-4 py-2 text-left">Müşteri</th>
+              <th className="px-4 py-2 text-left">Musteri</th>
               <th className="px-4 py-2 text-left">Durum</th>
-              <th className="px-4 py-2 text-left">Ücret</th>
+              <th className="px-4 py-2 text-left">Ucret</th>
               <th className="px-4 py-2 text-left">Detay</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--admin-border)] bg-[var(--admin-surface-alt)]">
-            {reservationHistory.map((row) => (
-              <tr
-                key={row.id}
-                className="cursor-pointer transition hover:bg-[var(--admin-surface)]"
-                onClick={() => {}}
-              >
-                <td className="px-4 py-3 font-semibold">{row.dateRange}</td>
-                <td className="px-4 py-3 text-[var(--admin-text-strong)]">{row.room}</td>
-                <td className="px-4 py-3 text-peach-500 hover:underline">{row.customer}</td>
-                <td className="px-4 py-3">
-                  <ReservationStatus status={row.status} />
+            {reservationHistory.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-sm text-[var(--admin-muted)]">
+                  Kayit bulunmuyor.
                 </td>
-                <td className="px-4 py-3 font-semibold">{row.total}</td>
-                <td className="px-4 py-3 text-peach-500">Detay →</td>
               </tr>
-            ))}
+            ) : (
+              reservationHistory.map((row) => (
+                <tr
+                  key={row.id}
+                  className="cursor-pointer transition hover:bg-[var(--admin-surface)]"
+                  onClick={() => {}}
+                >
+                  <td className="px-4 py-3 font-semibold">{row.dateRange}</td>
+                  <td className="px-4 py-3 text-[var(--admin-text-strong)]">{row.room}</td>
+                  <td className="px-4 py-3 text-peach-500 hover:underline">{row.customer}</td>
+                  <td className="px-4 py-3">
+                    <ReservationStatus status={row.status} />
+                  </td>
+                  <td className="px-4 py-3 font-semibold">{row.total}</td>
+                  <td className="px-4 py-3 text-peach-500">Detay ></td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -616,13 +601,13 @@ function ReservationsTab() {
   );
 }
 
-function FilesTab() {
+function FilesTab({ fileItems }: { fileItems: FileItem[] }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">Dosyalar</p>
-          <p className="text-sm text-[var(--admin-muted)]">Aşı kartı, sağlık raporu, fotoğraflar</p>
+          <p className="text-sm text-[var(--admin-muted)]">Asi karti, saglik raporu, fotograflar</p>
         </div>
         <button className="inline-flex items-center gap-2 rounded-full bg-peach-500 px-4 py-2 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5">
           <UploadCloud className="h-4 w-4" aria-hidden />
@@ -632,7 +617,7 @@ function FilesTab() {
 
       {fileItems.length === 0 ? (
         <div className="flex items-center justify-between rounded-2xl border border-dashed bg-[var(--admin-surface-alt)] px-4 py-6 text-sm text-[var(--admin-muted)] admin-border">
-          <span>Henüz dosya eklenmemiş.</span>
+          <span>Henuz dosya eklenmemis.</span>
           <button className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-peach-300 hover:text-peach-500 admin-border">
             <Plus className="h-4 w-4" aria-hidden />
             Dosya Ekle
@@ -656,7 +641,7 @@ function FilesTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-[var(--admin-muted)]">
-                  <button className="rounded-full p-1 transition hover:text-peach-500" aria-label="İndir">
+                  <button className="rounded-full p-1 transition hover:text-peach-500" aria-label="Indir">
                     <Download className="h-4 w-4" aria-hidden />
                   </button>
                   <button className="rounded-full p-1 transition hover:text-red-500" aria-label="Sil">

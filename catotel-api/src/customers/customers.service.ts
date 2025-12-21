@@ -13,6 +13,7 @@ import {
   AdminCustomerListItemDto,
   AdminCustomerListResponseDto,
 } from './dto/admin-customer-list.dto';
+import { AdminCustomerDetailDto } from './dto/admin-customer-detail.dto';
 import {
   AdminCatDetailDto,
   AdminCatListItemDto,
@@ -390,6 +391,75 @@ export class CustomersService {
       total,
       page,
       pageSize,
+    };
+  }
+
+  async getAdminCustomerDetail(
+    customerId: string,
+  ): Promise<AdminCustomerDetailDto> {
+    const customer = await this.prisma.customerProfile.findUnique({
+      where: { id: customerId },
+      include: {
+        user: { select: publicUserSelect },
+        cats: true,
+        reservations: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            roomType: true,
+            cats: { include: { cat: true } },
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.CUSTOMER_NOT_FOUND),
+      );
+    }
+
+    return {
+      id: customer.id,
+      userId: customer.userId,
+      name: customer.user.name ?? null,
+      email: customer.user.email,
+      phone: customer.phone ?? null,
+      address: customer.address ?? null,
+      preferredVet: customer.preferredVet ?? null,
+      emergencyContactName: customer.emergencyContactName ?? null,
+      emergencyContactPhone: customer.emergencyContactPhone ?? null,
+      notes: customer.notes ?? null,
+      createdAt: customer.createdAt.toISOString(),
+      updatedAt: customer.updatedAt.toISOString(),
+      cats: customer.cats.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        breed: cat.breed ?? null,
+        gender: cat.gender ?? null,
+        birthDate: cat.birthDate?.toISOString() ?? null,
+        weightKg: cat.weightKg ? cat.weightKg.toNumber() : null,
+        isNeutered: cat.isNeutered ?? null,
+        photoUrl: cat.photoUrl ?? null,
+        medicalNotes: cat.medicalNotes ?? null,
+        dietaryNotes: cat.dietaryNotes ?? null,
+        createdAt: cat.createdAt?.toISOString() ?? null,
+      })),
+      reservations: customer.reservations.map((reservation) => ({
+        id: reservation.id,
+        code: reservation.code,
+        status: reservation.status,
+        checkIn: reservation.checkIn.toISOString(),
+        checkOut: reservation.checkOut.toISOString(),
+        totalPrice: reservation.totalPrice.toString(),
+        roomType: reservation.roomType
+          ? { id: reservation.roomType.id, name: reservation.roomType.name }
+          : null,
+        cats: reservation.cats.map((entry) => ({
+          id: entry.cat.id,
+          name: entry.cat.name,
+          photoUrl: entry.cat.photoUrl ?? null,
+        })),
+      })),
     };
   }
 

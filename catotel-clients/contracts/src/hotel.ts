@@ -3,6 +3,8 @@ import type {
   CareTaskStatus,
   CareTaskType,
   UserRole,
+  PaymentMethod,
+  PaymentStatus,
 } from './enums';
 
 export type Cat = {
@@ -77,6 +79,16 @@ export type ReservationService = {
   unitPrice: number | string;
 };
 
+export type Payment = {
+  id: string;
+  amount: number | string;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  transactionRef?: string | null;
+  processedAt?: string | null;
+  createdAt?: string;
+};
+
 export type CheckItem = {
   label: string;
   quantity?: number | string | null;
@@ -144,12 +156,7 @@ export type Reservation = {
   roomType: RoomType;
   cats: ReservationCat[];
   services: ReservationService[];
-  payments?: Array<{
-    id: string;
-    amount: number | string;
-    status: string;
-    createdAt?: string;
-  }>;
+  payments?: Payment[];
   roomAssignments?: ReservationRoomAssignment[];
 };
 

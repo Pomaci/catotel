@@ -4,10 +4,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Prisma, ReservationStatus, UserRole } from '@prisma/client';
+import { Prisma, ReservationStatus, UserRole, PaymentStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 import { randomBytes } from 'crypto';
 import { publicUserSelect } from 'src/user/public-user.select';
 import { RoomAssignmentService } from './room-assignment.service';
@@ -642,6 +643,59 @@ export class ReservationsService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+  }
+
+  async recordPayment(id: string, role: UserRole, dto: CreatePaymentDto) {
+    if (role === UserRole.CUSTOMER) {
+      throw new ForbiddenException(
+        localizedError(ERROR_CODES.RESERVATION_UPDATE_FORBIDDEN),
+      );
+    }
+
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { id },
+      include: this.reservationIncludeWithPayments,
+    });
+    if (!reservation) {
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.RESERVATION_NOT_FOUND),
+      );
+    }
+
+    const transactionRef =
+      typeof dto.transactionRef === 'string'
+        ? dto.transactionRef.trim() || undefined
+        : undefined;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          reservationId: id,
+          amount: dto.amount,
+          method: dto.method,
+          transactionRef,
+          status: PaymentStatus.PAID,
+        },
+      });
+
+      await tx.activityLog.create({
+        data: {
+          userId: reservation.customer?.userId ?? undefined,
+          action: 'PAYMENT_RECORDED',
+          context: {
+            reservationId: id,
+            amount: dto.amount,
+            method: dto.method,
+            transactionRef,
+          },
+        },
+      });
+    });
+
+    return this.prisma.reservation.findUniqueOrThrow({
+      where: { id },
+      include: this.reservationIncludeWithPayments,
+    });
   }
 
   private isValidTransition(

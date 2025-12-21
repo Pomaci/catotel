@@ -22,3 +22,15 @@ export async function DELETE(request: Request, { params }: Params) {
     return handleApiError(error);
   }
 }
+
+export async function GET(_: Request, { params }: Params) {
+  try {
+    const customer = await backendRequestWithRefresh({
+      method: "GET",
+      url: `/admin/customers/${params.id}`,
+    });
+    return NextResponse.json(customer);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}

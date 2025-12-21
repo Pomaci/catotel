@@ -1,10 +1,10 @@
-﻿"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import clsx from "clsx";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from 'react';
+import clsx from 'clsx';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import {
   AlertTriangle,
   CalendarRange,
@@ -27,17 +27,23 @@ import {
   User,
   X,
   XCircle,
-} from "lucide-react";
-import { HotelApi } from "@/lib/api/hotel";
-import { useReservations } from "@/lib/hooks/useHotelData";
-import type {
-  CheckInForm,
-  CheckOutForm,
-  Reservation,
-  Room,
-} from "@/types/hotel";
-import { ReservationStatus } from "@/types/enums";
-import type { ReservationUpdatePayload } from "@/lib/api/payloads";
+} from 'lucide-react';
+import { HotelApi } from '@/lib/api/hotel';
+import { useReservations } from '@/lib/hooks/useHotelData';
+import type { CheckInForm, CheckOutForm, Reservation, Room } from '@/types/hotel';
+import { ReservationStatus } from '@/types/enums';
+import type { ReservationUpdatePayload } from '@/lib/api/payloads';
+
+const PAYMENT_METHODS = ['CASH', 'CARD', 'ONLINE'] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+type PaymentRecord = {
+  id: string;
+  amount: number | string;
+  status: string;
+  createdAt?: string;
+  method?: string;
+  transactionRef?: string | null;
+};
 
 export default function ReservationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -49,7 +55,7 @@ export default function ReservationDetailPage() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["reservation", reservationId],
+    queryKey: ['reservation', reservationId],
     enabled: Boolean(reservationId),
     queryFn: () => HotelApi.getReservation(reservationId!),
   });
@@ -58,7 +64,7 @@ export default function ReservationDetailPage() {
     isLoading: roomsLoading,
     error: roomsError,
   } = useQuery({
-    queryKey: ["rooms"],
+    queryKey: ['rooms'],
     enabled: Boolean(reservationId),
     queryFn: () => HotelApi.listRoomUnits(),
   });
@@ -73,29 +79,26 @@ export default function ReservationDetailPage() {
       HotelApi.updateReservation(reservationId!, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["reservation", reservationId],
+        queryKey: ['reservation', reservationId],
       });
-      queryClient.invalidateQueries({ queryKey: ["reservations"] });
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
     },
     onError: (err) => {
       console.error(err);
-      alert("Durum güncellenirken bir hata oluştu.");
+      alert('Durum güncellenirken bir hata oluştu.');
     },
   });
 
   const [showCheckInForm, setShowCheckInForm] = useState(false);
   const [showCheckOutForm, setShowCheckOutForm] = useState(false);
 
-  const trail = useMemo(
-    () => buildTimeline(reservation?.status),
-    [reservation?.status]
-  );
+  const trail = useMemo(() => buildTimeline(reservation?.status), [reservation?.status]);
   const roomTypeRooms = useMemo(
     () =>
       rooms && reservation
         ? rooms.filter((room) => room.roomType.id === reservation.roomType.id)
         : [],
-    [rooms, reservation?.roomType.id]
+    [rooms, reservation?.roomType.id],
   );
   const roomOccupancyInfo = useMemo<RoomOccupancyInfo>(() => {
     if (!reservation?.roomType?.id) return {};
@@ -115,17 +118,17 @@ export default function ReservationDetailPage() {
       };
     });
     return info;
-  }, [checkedInReservations, reservation?.id, reservation?.roomType?.capacity, reservation?.roomType?.id]);
-  const occupiedRoomIds = useMemo(
-    () => Object.keys(roomOccupancyInfo),
-    [roomOccupancyInfo],
-  );
+  }, [
+    checkedInReservations,
+    reservation?.id,
+    reservation?.roomType?.capacity,
+    reservation?.roomType?.id,
+  ]);
+  const occupiedRoomIds = useMemo(() => Object.keys(roomOccupancyInfo), [roomOccupancyInfo]);
   if (isLoading) {
     return (
       <div className="admin-surface p-6">
-        <p className="text-sm font-semibold text-[var(--admin-muted)]">
-          Rezervasyon yükleniyor...
-        </p>
+        <p className="text-sm font-semibold text-[var(--admin-muted)]">Rezervasyon yükleniyor...</p>
       </div>
     );
   }
@@ -134,21 +137,17 @@ export default function ReservationDetailPage() {
     return (
       <div className="admin-surface p-6">
         <p className="text-sm font-semibold text-red-500">
-          Rezervasyon yüklenemedi. {error instanceof Error ? error.message : ""}
+          Rezervasyon yüklenemedi. {error instanceof Error ? error.message : ''}
         </p>
       </div>
     );
   }
 
   const totalExtras =
-    reservation.services?.reduce(
-      (sum, s) => sum + Number(s.unitPrice) * s.quantity,
-      0
-    ) ?? 0;
+    reservation.services?.reduce((sum, s) => sum + Number(s.unitPrice) * s.quantity, 0) ?? 0;
   const nights = calculateNights(reservation.checkIn, reservation.checkOut);
 
-  const handleStatusChange = (status: ReservationStatus) =>
-    updateMutation.mutate({ status });
+  const handleStatusChange = (status: ReservationStatus) => updateMutation.mutate({ status });
 
   const handleCheckInSubmit = async (form: CheckInForm) => {
     try {
@@ -187,11 +186,7 @@ export default function ReservationDetailPage() {
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
           <InfoCard reservation={reservation} />
-          <StayCard
-            reservation={reservation}
-            nights={nights}
-            rooms={roomTypeRooms}
-          />
+          <StayCard reservation={reservation} nights={nights} rooms={roomTypeRooms} />
           <ExtrasCard reservation={reservation} totalExtras={totalExtras} />
           <NotesCard reservation={reservation} />
         </div>
@@ -222,9 +217,7 @@ export default function ReservationDetailPage() {
         roomOccupancyInfo={roomOccupancyInfo}
         occupiedRoomIds={occupiedRoomIds}
         occupiedRoomsLoading={occupiedRoomsLoading}
-        occupiedRoomsError={
-          occupiedRoomsError instanceof Error ? occupiedRoomsError.message : null
-        }
+        occupiedRoomsError={occupiedRoomsError instanceof Error ? occupiedRoomsError.message : null}
       />
       <CheckOutFormModal
         open={showCheckOutForm}
@@ -260,15 +253,11 @@ function HeaderCard({
             Rezervasyon #{reservation.code}
           </h1>
           <p className="mt-1 text-sm text-[var(--admin-muted)]">
-            Müşteri: {reservation.customer?.user.name ?? "Bilinmiyor"} • Kedi:{" "}
-            {primaryCat?.name ?? "?"}{" "}
-            {primaryCat?.breed ? `(${primaryCat.breed})` : ""}
+            Müşteri: {reservation.customer?.user.name ?? 'Bilinmiyor'} • Kedi:{' '}
+            {primaryCat?.name ?? '?'} {primaryCat?.breed ? `(${primaryCat.breed})` : ''}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
-            <span
-              className="status-badge"
-              data-variant={mapStatus(reservation.status)}
-            >
+            <span className="status-badge" data-variant={mapStatus(reservation.status)}>
               {formatStatus(reservation.status)}
             </span>
             <span className="admin-chip">
@@ -293,7 +282,7 @@ function HeaderCard({
           className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-red-500 transition hover:-translate-y-0.5 hover:border-red-300 admin-border disabled:cursor-not-allowed disabled:opacity-60"
         >
           <XCircle className="h-4 w-4" aria-hidden />
-          {isUpdating ? "İptal ediliyor..." : "İptal Et"}
+          {isUpdating ? 'İptal ediliyor...' : 'İptal Et'}
         </button>
         <button
           type="button"
@@ -331,9 +320,7 @@ function CardShell({
         </h2>
         {action}
       </div>
-      <div className="space-y-3 text-[var(--admin-text-strong)]">
-        {children}
-      </div>
+      <div className="space-y-3 text-[var(--admin-text-strong)]">{children}</div>
     </div>
   );
 }
@@ -343,10 +330,7 @@ function InfoCard({ reservation }: { reservation: Reservation }) {
     <CardShell
       title="Müşteri & Kediler"
       action={
-        <button
-          type="button"
-          className="text-xs font-semibold text-peach-500 hover:underline"
-        >
+        <button type="button" className="text-xs font-semibold text-peach-500 hover:underline">
           Müşteri profilini aç →
         </button>
       }
@@ -358,10 +342,10 @@ function InfoCard({ reservation }: { reservation: Reservation }) {
           </div>
           <div>
             <p className="text-base font-semibold">
-              {reservation.customer?.user.name ?? "Bilinmiyor"}
+              {reservation.customer?.user.name ?? 'Bilinmiyor'}
             </p>
             <p className="text-xs text-[var(--admin-muted)]">
-              {reservation.customer?.user.email ?? "E-posta yok"}
+              {reservation.customer?.user.email ?? 'E-posta yok'}
             </p>
           </div>
         </div>
@@ -378,7 +362,7 @@ function InfoCard({ reservation }: { reservation: Reservation }) {
             <div>
               <p className="font-semibold">{catEntry.cat.name}</p>
               <p className="text-xs text-[var(--admin-muted)]">
-                {catEntry.cat.breed ?? "Cins bilinmiyor"}
+                {catEntry.cat.breed ?? 'Cins bilinmiyor'}
               </p>
             </div>
           </div>
@@ -400,8 +384,8 @@ function StayCard({
   const roomNameLookup = new Map((rooms ?? []).map((room) => [room.id, room.name]));
   const checkInRoomName =
     reservation.checkInForm?.roomId && roomNameLookup.size
-      ? roomNameLookup.get(reservation.checkInForm.roomId) ?? reservation.checkInForm.roomId
-      : reservation.checkInForm?.roomId ?? null;
+      ? (roomNameLookup.get(reservation.checkInForm.roomId) ?? reservation.checkInForm.roomId)
+      : (reservation.checkInForm?.roomId ?? null);
   const plannedAssignments = reservation.roomAssignments ?? [];
   return (
     <CardShell
@@ -421,11 +405,10 @@ function StayCard({
           <Home className="h-4 w-4 text-peach-400" aria-hidden />
           <div>
             <p className="text-sm font-semibold">
-              {reservation.roomType.name} (kapasite:{" "}
-              {reservation.roomType.capacity} kedi)
+              {reservation.roomType.name} (kapasite: {reservation.roomType.capacity} kedi)
             </p>
             <p className="text-xs text-[var(--admin-muted)]">
-              {reservation.roomType.description ?? "Oda detayı belirtilmemiş."}
+              {reservation.roomType.description ?? 'Oda detayı belirtilmemiş.'}
             </p>
             {checkInRoomName && (
               <p className="mt-1 text-xs font-semibold text-[var(--admin-text-strong)]">
@@ -438,7 +421,7 @@ function StayCard({
           <CalendarRange className="h-4 w-4 text-peach-400" aria-hidden />
           <div>
             <p className="text-sm font-semibold">
-              Giriş: {formatDateTime(reservation.checkIn)} • Çıkış:{" "}
+              Giriş: {formatDateTime(reservation.checkIn)} • Çıkış:{' '}
               {formatDateTime(reservation.checkOut)}
             </p>
             <p className="text-xs text-[var(--admin-muted)]">{nights} gece</p>
@@ -448,14 +431,12 @@ function StayCard({
           <Users className="h-4 w-4 text-peach-400" aria-hidden />
           <div>
             <p className="text-sm font-semibold">
-              {reservation.allowRoomSharing === false
-                ? "Özel kullanım"
-                : "Paylaşıma açık"}
+              {reservation.allowRoomSharing === false ? 'Özel kullanım' : 'Paylaşıma açık'}
             </p>
             <p className="text-xs text-[var(--admin-muted)]">
               {reservation.allowRoomSharing === false
-                ? "Oda tamamen bu rezervasyona ayrıldı."
-                : "Müsait slotlarda diğer rezervasyonlar paylaşabilir."}
+                ? 'Oda tamamen bu rezervasyona ayrıldı.'
+                : 'Müsait slotlarda diğer rezervasyonlar paylaşabilir.'}
             </p>
           </div>
         </div>
@@ -478,8 +459,8 @@ function StayCard({
                   </p>
                 </div>
                 <div className="text-xs font-semibold text-[var(--admin-muted)]">
-                  {assignment.catCount} kedi ·{" "}
-                  {assignment.allowRoomSharing === false ? "Özel kullanım" : "Paylaşıma açık"}
+                  {assignment.catCount} kedi ·{' '}
+                  {assignment.allowRoomSharing === false ? 'Özel kullanım' : 'Paylaşıma açık'}
                 </div>
               </div>
             ))}
@@ -501,9 +482,7 @@ function ExtrasCard({
     <CardShell title="Ek Hizmetler">
       <div className="space-y-2">
         {reservation.services.length === 0 && (
-          <p className="text-sm text-[var(--admin-muted)]">
-            Ek hizmet bulunmuyor.
-          </p>
+          <p className="text-sm text-[var(--admin-muted)]">Ek hizmet bulunmuyor.</p>
         )}
         {reservation.services.map((service) => (
           <div
@@ -514,9 +493,7 @@ function ExtrasCard({
               <PawPrint className="h-4 w-4 text-peach-400" aria-hidden />
               <div>
                 <p className="font-semibold">{service.service.name}</p>
-                <p className="text-xs text-[var(--admin-muted)]">
-                  Adet: {service.quantity}
-                </p>
+                <p className="text-xs text-[var(--admin-muted)]">Adet: {service.quantity}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -560,7 +537,7 @@ function NotesCard({ reservation }: { reservation: Reservation }) {
           Müşteri notu
         </p>
         <p className="text-sm leading-relaxed text-[var(--admin-text-strong)]">
-          {reservation.specialRequests ?? "Not yok"}
+          {reservation.specialRequests ?? 'Not yok'}
         </p>
       </div>
       <div className="space-y-2 rounded-2xl bg-[var(--admin-surface-alt)] p-3">
@@ -569,8 +546,8 @@ function NotesCard({ reservation }: { reservation: Reservation }) {
         </p>
         <p className="text-sm leading-relaxed text-[var(--admin-text-strong)]">
           {reservation.services.length
-            ? "Ek hizmetler planlandı, operasyonu takip edin."
-            : "İç operasyon notu girilmedi."}
+            ? 'Ek hizmetler planlandı, operasyonu takip edin.'
+            : 'İç operasyon notu girilmedi.'}
         </p>
       </div>
     </CardShell>
@@ -580,7 +557,7 @@ function NotesCard({ reservation }: { reservation: Reservation }) {
 type TimelineStep = {
   label: string;
   at: string;
-  state: "done" | "active" | "pending" | "disabled";
+  state: 'done' | 'active' | 'pending' | 'disabled';
 };
 
 function TimelineCard({ trail }: { trail: TimelineStep[] }) {
@@ -598,25 +575,17 @@ function TimelineCard({ trail }: { trail: TimelineStep[] }) {
           <div key={step.label} className="timeline__item">
             <div
               className={clsx(
-                "timeline__icon",
-                step.state === "done" && "is-done",
-                step.state === "active" && "is-active",
-                step.state === "pending" && "is-pending",
-                step.state === "disabled" && "is-disabled"
+                'timeline__icon',
+                step.state === 'done' && 'is-done',
+                step.state === 'active' && 'is-active',
+                step.state === 'pending' && 'is-pending',
+                step.state === 'disabled' && 'is-disabled',
               )}
             >
-              {step.state === "done" && (
-                <Check className="h-3.5 w-3.5" aria-hidden />
-              )}
-              {step.state === "active" && (
-                <Clock3 className="h-3.5 w-3.5" aria-hidden />
-              )}
-              {step.state === "pending" && (
-                <Info className="h-3.5 w-3.5" aria-hidden />
-              )}
-              {step.state === "disabled" && (
-                <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-              )}
+              {step.state === 'done' && <Check className="h-3.5 w-3.5" aria-hidden />}
+              {step.state === 'active' && <Clock3 className="h-3.5 w-3.5" aria-hidden />}
+              {step.state === 'pending' && <Info className="h-3.5 w-3.5" aria-hidden />}
+              {step.state === 'disabled' && <AlertTriangle className="h-3.5 w-3.5" aria-hidden />}
             </div>
             <div className="timeline__line" aria-hidden />
             <div>
@@ -667,26 +636,24 @@ function OperationsCard({
               type="button"
               onClick={() =>
                 onStatusChange(
-                  isConfirmed
-                    ? ReservationStatus.PENDING
-                    : ReservationStatus.CONFIRMED
+                  isConfirmed ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED,
                 )
               }
               disabled={!(canConfirm || isConfirmed) || isUpdating}
               className={clsx(
-                "flex items-center justify-center gap-2 rounded-2xl bg-peach-500 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg",
+                'flex items-center justify-center gap-2 rounded-2xl bg-peach-500 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg',
                 (!(canConfirm || isConfirmed) || isUpdating) &&
-                  "opacity-60 hover:translate-y-0 hover:shadow-none"
+                  'opacity-60 hover:translate-y-0 hover:shadow-none',
               )}
             >
               <Check className="h-4 w-4" aria-hidden />
               {isUpdating
                 ? isConfirmed
-                  ? "Onay geri alınıyor..."
-                  : "Onaylanıyor..."
+                  ? 'Onay geri alınıyor...'
+                  : 'Onaylanıyor...'
                 : isConfirmed
-                ? "Onayı Geri Al"
-                : "Rezervasyonu Onayla"}
+                  ? 'Onayı Geri Al'
+                  : 'Rezervasyonu Onayla'}
             </button>
             <button
               type="button"
@@ -699,17 +666,16 @@ function OperationsCard({
               }}
               disabled={!canCheckIn || isUpdating}
               className={clsx(
-                "flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg",
-                (!canCheckIn || isUpdating) &&
-                  "opacity-60 hover:translate-y-0 hover:shadow-none"
+                'flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg',
+                (!canCheckIn || isUpdating) && 'opacity-60 hover:translate-y-0 hover:shadow-none',
               )}
             >
               <CheckCircle2 className="h-4 w-4" aria-hidden />
               {isUpdating
-                ? "İşlem yapılıyor..."
+                ? 'İşlem yapılıyor...'
                 : isCheckedIn
-                ? "Check-in Geri Al (Onaya dön)"
-                : "Check-in Yap"}
+                  ? 'Check-in Geri Al (Onaya dön)'
+                  : 'Check-in Yap'}
             </button>
             <button
               type="button"
@@ -722,17 +688,16 @@ function OperationsCard({
               }}
               disabled={!canCheckOut || isUpdating}
               className={clsx(
-                "flex items-center justify-center gap-2 rounded-2xl bg-peach-400 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg",
-                (!canCheckOut || isUpdating) &&
-                  "opacity-60 hover:translate-y-0 hover:shadow-none"
+                'flex items-center justify-center gap-2 rounded-2xl bg-peach-400 px-4 py-3 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-lg',
+                (!canCheckOut || isUpdating) && 'opacity-60 hover:translate-y-0 hover:shadow-none',
               )}
             >
               <DoorOpen className="h-4 w-4" aria-hidden />
               {isUpdating
-                ? "İşlem yapılıyor..."
+                ? 'İşlem yapılıyor...'
                 : isCheckedOut
-                ? "Check-out Geri Al"
-                : "Check-out Yap"}
+                  ? 'Check-out Geri Al'
+                  : 'Check-out Yap'}
             </button>
           </>
         )}
@@ -742,12 +707,12 @@ function OperationsCard({
             onClick={() => onStatusChange(ReservationStatus.CONFIRMED)}
             disabled={isUpdating}
             className={clsx(
-              "flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-highlight-muted)] px-4 py-3 text-sm font-semibold text-[var(--admin-text-strong)] shadow transition hover:-translate-y-0.5 hover:shadow-lg",
-              isUpdating && "opacity-60 hover:translate-y-0 hover:shadow-none"
+              'flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-highlight-muted)] px-4 py-3 text-sm font-semibold text-[var(--admin-text-strong)] shadow transition hover:-translate-y-0.5 hover:shadow-lg',
+              isUpdating && 'opacity-60 hover:translate-y-0 hover:shadow-none',
             )}
           >
             <CheckCircle2 className="h-4 w-4" aria-hidden />
-            {isUpdating ? "Geri alınıyor..." : "İptali Geri Al (Onayla)"}
+            {isUpdating ? 'Geri alınıyor...' : 'İptali Geri Al (Onayla)'}
           </button>
         )}
       </div>
@@ -758,49 +723,63 @@ function OperationsCard({
             onClick={() => onStatusChange(ReservationStatus.CANCELLED)}
             disabled={!canCancel || isUpdating}
             className={clsx(
-              "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:-translate-y-0.5 hover:border-red-200 hover:text-red-600 admin-border",
-              (!canCancel || isUpdating) && "opacity-60 hover:translate-y-0"
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:-translate-y-0.5 hover:border-red-200 hover:text-red-600 admin-border',
+              (!canCancel || isUpdating) && 'opacity-60 hover:translate-y-0',
             )}
           >
             <XCircle className="h-4 w-4" aria-hidden />
-            {isUpdating ? "İşlem yapılıyor..." : "İptal Et"}
+            {isUpdating ? 'İşlem yapılıyor...' : 'İptal Et'}
           </button>
         </div>
       )}
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div className="space-y-1 rounded-2xl border bg-[var(--admin-surface-alt)] px-4 py-3 text-sm admin-border">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] admin-muted">
-            Check-in Kaydi
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] admin-muted">
+              Check-in Kaydı
+            </p>
+            <button
+              type="button"
+              onClick={onOpenCheckInForm}
+              className="text-xs font-semibold text-peach-500 hover:underline"
+            >
+              Formu goster
+            </button>
+          </div>
           <p className="text-sm font-semibold text-[var(--admin-text-strong)]">
             {reservation.checkInForm?.arrivalTime
               ? `${formatDateTime(reservation.checkInForm.arrivalTime)} - ${
                   reservation.checkInForm?.deliveredItems?.length ?? 0
                 } esya`
-              : "Henuz kaydedilmedi"}
+              : 'Henuz kaydedilmedi'}
           </p>
           {reservation.checkInForm?.catCondition && (
-            <p className="text-xs admin-muted">
-              Not: {reservation.checkInForm.catCondition}
-            </p>
+            <p className="text-xs admin-muted">Not: {reservation.checkInForm.catCondition}</p>
           )}
         </div>
         <div className="space-y-1 rounded-2xl border bg-[var(--admin-surface-alt)] px-4 py-3 text-sm admin-border">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] admin-muted">
-            Check-out Kaydi
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] admin-muted">
+              Check-out Kaydı
+            </p>
+            <button
+              type="button"
+              onClick={onOpenCheckOutForm}
+              className="text-xs font-semibold text-peach-500 hover:underline"
+            >
+              Formu goster
+            </button>
+          </div>
           <p className="text-sm font-semibold text-[var(--admin-text-strong)]">
             {reservation.checkOutForm?.departureTime
               ? `${formatDateTime(reservation.checkOutForm.departureTime)} - ${
                   reservation.checkOutForm?.returnedItems?.length ?? 0
                 } esya`
-              : "Henuz kaydedilmedi"}
+              : 'Henuz kaydedilmedi'}
           </p>
           {reservation.checkOutForm?.catCondition && (
-            <p className="text-xs admin-muted">
-              Not: {reservation.checkOutForm.catCondition}
-            </p>
+            <p className="text-xs admin-muted">Not: {reservation.checkOutForm.catCondition}</p>
           )}
         </div>
       </div>
@@ -826,31 +805,144 @@ function PaymentCard({
   reservation: Reservation;
   totalExtras: number;
 }) {
+  const queryClient = useQueryClient();
+  const [method, setMethod] = useState<PaymentMethod>('CASH');
+  const [amount, setAmount] = useState('');
+  const [transactionRef, setTransactionRef] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const paymentMutation = useMutation({
+    mutationFn: (payload: { amount: number; method: PaymentMethod; transactionRef?: string }) =>
+      HotelApi.addReservationPayment(reservation.id, payload),
+    onSuccess: () => {
+      setAmount('');
+      setTransactionRef('');
+      setFormError(null);
+      void queryClient.invalidateQueries({
+        queryKey: ['reservation', reservation.id],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+    },
+    onError: (err: any) => {
+      setFormError(err?.message ?? 'Ödeme kaydı eklenemedi.');
+    },
+  });
+
+  const payments = (reservation.payments ?? []) as PaymentRecord[];
+  const paidTotal = payments.reduce((sum, payment) => {
+    if (payment.status !== 'PAID') return sum;
+    return sum + (Number(payment.amount) || 0);
+  }, 0);
+  const totalAmount = Number(reservation.totalPrice) || 0;
+  const remaining = Math.max(0, totalAmount - paidTotal);
+
+  const handlePaymentSubmit = () => {
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setFormError('Gecerli bir tutar girin.');
+      return;
+    }
+    setFormError(null);
+    paymentMutation.mutate({
+      amount: parsedAmount,
+      method,
+      transactionRef: trimOrUndefined(transactionRef),
+    });
+  };
+
   return (
     <CardShell title="Ödeme">
       <div className="flex items-center justify-between">
-        <p className="text-lg font-semibold">
-          Toplam: {formatCurrency(reservation.totalPrice)}
-        </p>
+        <p className="text-lg font-semibold">Toplam: {formatCurrency(reservation.totalPrice)}</p>
         <span className="status-badge" data-variant="checkin">
           Ödeme Durumu
         </span>
       </div>
       <div className="space-y-1 rounded-2xl bg-[var(--admin-surface-alt)] p-3 text-sm">
-        <Line
-          label="Oda ücreti"
-          value={formatCurrency(reservation.totalPrice)}
-        />
+        <Line label="Oda Ücreti" value={formatCurrency(reservation.totalPrice)} />
         <Line label="Ek hizmetler" value={formatCurrency(totalExtras)} />
-        <Line label="Ön ödeme" value={formatCurrency(0)} />
+        <Line label="Alinan ödeme" value={formatCurrency(paidTotal)} />
+        <Line label="Kalan tutar" value={formatCurrency(remaining)} />
       </div>
-      <button
-        type="button"
-        className="inline-flex items-center gap-2 rounded-full bg-peach-400 px-4 py-2 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5"
-      >
-        <Download className="h-4 w-4" aria-hidden />
-        Ödeme Al
-      </button>
+      <div className="space-y-3 rounded-2xl border bg-[var(--admin-surface-alt)] p-3 admin-border">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">
+          Manuel ödeme kaydı
+        </p>
+        <div className="grid gap-2 md:grid-cols-3">
+          <label className="space-y-1 text-xs font-semibold text-[var(--admin-muted)]">
+            Ödeme yontemi
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+              className="w-full rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold text-[var(--admin-text-strong)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
+            >
+              {PAYMENT_METHODS.map((value) => (
+                <option key={value} value={value}>
+                  {formatPaymentMethod(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-xs font-semibold text-[var(--admin-muted)]">
+            Tutar
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
+            />
+          </label>
+          <label className="space-y-1 text-xs font-semibold text-[var(--admin-muted)]">
+            Referans (opsiyonel)
+            <input
+              type="text"
+              value={transactionRef}
+              onChange={(e) => setTransactionRef(e.target.value)}
+              placeholder="POS/transfer no"
+              className="w-full rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
+            />
+          </label>
+        </div>
+        {formError && <p className="text-xs font-semibold text-red-500">{formError}</p>}
+        <button
+          type="button"
+          onClick={handlePaymentSubmit}
+          disabled={paymentMutation.isPending}
+          className="inline-flex items-center gap-2 rounded-full bg-peach-400 px-4 py-2 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 disabled:opacity-60"
+        >
+          <Download className="h-4 w-4" aria-hidden />
+          {paymentMutation.isPending ? 'Kaydediliyor...' : 'Ödeme Al'}
+        </button>
+      </div>
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--admin-muted)]">
+          Ödeme listesi
+        </p>
+        {payments.length === 0 && (
+          <p className="text-sm text-[var(--admin-muted)]">Henuz ödeme kaydı yok.</p>
+        )}
+        {payments.map((payment) => (
+          <div
+            key={payment.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-2 text-sm admin-border"
+          >
+            <div>
+              <p className="text-sm font-semibold text-[var(--admin-text-strong)]">
+                {formatPaymentMethod(payment.method)} · {formatCurrency(payment.amount)}
+              </p>
+              <p className="text-xs text-[var(--admin-muted)]">
+                {payment.transactionRef ? `Ref: ${payment.transactionRef}` : 'Referans yok'}
+                {payment.createdAt ? ` · ${formatDateTime(payment.createdAt)}` : ''}
+              </p>
+            </div>
+            <span className="rounded-full bg-[var(--admin-highlight-muted)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-text-strong)]">
+              {formatPaymentStatus(payment.status)}
+            </span>
+          </div>
+        ))}
+      </div>
     </CardShell>
   );
 }
@@ -865,13 +957,7 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 function TabsSection() {
-  const tabs = [
-    "Günlük Raporlar",
-    "Medya",
-    "Geçmiş İşlemler",
-    "Formlar",
-    "Mesajlar",
-  ];
+  const tabs = ['Günlük Raporlar', 'Medya', 'Geçmiş İşlemler', 'Formlar', 'Mesajlar'];
   return (
     <div className="admin-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -881,10 +967,10 @@ function TabsSection() {
             key={idx}
             type="button"
             className={clsx(
-              "rounded-full px-4 py-2 text-sm font-semibold transition",
+              'rounded-full px-4 py-2 text-sm font-semibold transition',
               idx === 0
-                ? "bg-[var(--admin-highlight-muted)] text-[var(--admin-text-strong)] shadow-sm"
-                : "text-[var(--admin-muted)] hover:text-[var(--admin-text-strong)] hover:bg-[var(--admin-highlight-muted)]/60"
+                ? 'bg-[var(--admin-highlight-muted)] text-[var(--admin-text-strong)] shadow-sm'
+                : 'text-[var(--admin-muted)] hover:text-[var(--admin-text-strong)] hover:bg-[var(--admin-highlight-muted)]/60',
             )}
           >
             {tab}
@@ -892,8 +978,7 @@ function TabsSection() {
         ))}
       </div>
       <div className="mt-4 rounded-2xl border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-alt)] p-6 text-sm text-[var(--admin-muted)]">
-        Bu sekme içeriği yakında. Günlük raporlar, medya ve işlemler burada
-        listelenecek.
+        Bu sekme içeriği yakında. Günlük raporlar, medya ve işlemler burada listelenecek.
       </div>
     </div>
   );
@@ -942,101 +1027,89 @@ function CheckInFormModal({
   occupiedRoomsLoading?: boolean;
   occupiedRoomsError?: string | null;
 }) {
-  const [roomId, setRoomId] = useState("");
-  const [arrivalTime, setArrivalTime] = useState("");
+  const [roomId, setRoomId] = useState('');
+  const [arrivalTime, setArrivalTime] = useState('');
   const [deliveredItems, setDeliveredItems] = useState<ItemField[]>([]);
   const [foodPlan, setFoodPlan] = useState({
-    brand: "",
-    amountPerMeal: "",
-    frequencyPerDay: "",
-    instructions: "",
+    brand: '',
+    amountPerMeal: '',
+    frequencyPerDay: '',
+    instructions: '',
   });
   const [medications, setMedications] = useState<MedicationField[]>([]);
-  const [weightKg, setWeightKg] = useState("");
-  const [catCondition, setCatCondition] = useState("");
+  const [weightKg, setWeightKg] = useState('');
+  const [catCondition, setCatCondition] = useState('');
   const [hasVaccineCard, setHasVaccineCard] = useState(false);
   const [hasFleaTreatment, setHasFleaTreatment] = useState(false);
-  const [handledBy, setHandledBy] = useState("");
-  const [additionalNotes, setAdditionalNotes] = useState("");
+  const [handledBy, setHandledBy] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const occupancyInfo = roomOccupancyInfo ?? {};
   const defaultRoomCapacity = Math.max(1, reservation.roomType.capacity ?? 1);
   const roomOptions = useMemo(
-    () =>
-      (rooms ?? []).filter(
-        (room) => room.roomType.id === reservation.roomType.id
-      ),
-    [rooms, reservation.roomType.id]
+    () => (rooms ?? []).filter((room) => room.roomType.id === reservation.roomType.id),
+    [rooms, reservation.roomType.id],
   );
   const blockedRoomIds = useMemo(
     () =>
       new Set(
-        (occupiedRoomIds ?? [])
-          .map((id) => id?.trim())
-          .filter((id): id is string => Boolean(id))
+        (occupiedRoomIds ?? []).map((id) => id?.trim()).filter((id): id is string => Boolean(id)),
       ),
-    [occupiedRoomIds]
+    [occupiedRoomIds],
   );
   const plannedAssignment = reservation.roomAssignments?.[0];
-  const assignmentRoomId = plannedAssignment?.room.id ?? "";
-  const assignedRoomId = reservation.checkInForm?.roomId ?? assignmentRoomId ?? "";
+  const assignmentRoomId = plannedAssignment?.room.id ?? '';
+  const assignedRoomId = reservation.checkInForm?.roomId ?? assignmentRoomId ?? '';
   const availableRooms = useMemo(
     () =>
       roomOptions.filter((room) => {
         if (assignedRoomId && room.id === assignedRoomId) return true;
         return !blockedRoomIds.has(room.id);
       }),
-    [roomOptions, assignedRoomId, blockedRoomIds]
+    [roomOptions, assignedRoomId, blockedRoomIds],
   );
 
   useEffect(() => {
     if (!open) return;
 
     const arrivalSource =
-      reservation.checkInForm?.arrivalTime ??
-      reservation.checkedInAt ??
-      reservation.checkIn;
+      reservation.checkInForm?.arrivalTime ?? reservation.checkedInAt ?? reservation.checkIn;
 
     setArrivalTime(toDatetimeLocal(arrivalSource));
-    setRoomId(reservation.checkInForm?.roomId ?? assignmentRoomId ?? "");
+    setRoomId(reservation.checkInForm?.roomId ?? assignmentRoomId ?? '');
     setDeliveredItems(
       (reservation.checkInForm?.deliveredItems ?? []).map((item) => ({
         label: item.label,
-        quantity: item.quantity ? String(item.quantity) : "",
-        note: item.note ?? "",
-      }))
+        quantity: item.quantity ? String(item.quantity) : '',
+        note: item.note ?? '',
+      })),
     );
 
     const existingFoodPlan = reservation.checkInForm?.foodPlan;
     setFoodPlan({
-      brand: existingFoodPlan?.brand ?? "",
-      amountPerMeal: existingFoodPlan?.amountPerMeal ?? "",
+      brand: existingFoodPlan?.brand ?? '',
+      amountPerMeal: existingFoodPlan?.amountPerMeal ?? '',
       frequencyPerDay: existingFoodPlan?.frequencyPerDay
         ? String(existingFoodPlan.frequencyPerDay)
-        : "",
-      instructions:
-        existingFoodPlan?.instructions ?? reservation.specialRequests ?? "",
+        : '',
+      instructions: existingFoodPlan?.instructions ?? reservation.specialRequests ?? '',
     });
 
     setMedications(
       (reservation.checkInForm?.medicationPlan ?? []).map((med) => ({
         name: med.name,
-        dosage: med.dosage ?? "",
-        schedule: med.schedule ?? "",
+        dosage: med.dosage ?? '',
+        schedule: med.schedule ?? '',
         withFood: Boolean(med.withFood),
-        notes: med.notes ?? "",
-      }))
+        notes: med.notes ?? '',
+      })),
     );
-    setWeightKg(
-      reservation.checkInForm?.weightKg
-        ? String(reservation.checkInForm.weightKg)
-        : ""
-    );
-    setCatCondition(reservation.checkInForm?.catCondition ?? "");
+    setWeightKg(reservation.checkInForm?.weightKg ? String(reservation.checkInForm.weightKg) : '');
+    setCatCondition(reservation.checkInForm?.catCondition ?? '');
     setHasVaccineCard(Boolean(reservation.checkInForm?.hasVaccineCard));
     setHasFleaTreatment(Boolean(reservation.checkInForm?.hasFleaTreatment));
-    setHandledBy(reservation.checkInForm?.handledBy ?? "");
-    setAdditionalNotes(reservation.checkInForm?.additionalNotes ?? "");
+    setHandledBy(reservation.checkInForm?.handledBy ?? '');
+    setAdditionalNotes(reservation.checkInForm?.additionalNotes ?? '');
     setError(null);
   }, [open, reservation, assignmentRoomId]);
 
@@ -1045,7 +1118,7 @@ function CheckInFormModal({
     if (roomId) {
       const stillSelectable = availableRooms.some((room) => room.id === roomId);
       if (!stillSelectable) {
-        setRoomId("");
+        setRoomId('');
       }
       return;
     }
@@ -1070,28 +1143,25 @@ function CheckInFormModal({
       .filter((item) => item.label.length > 0);
 
     if (!arrivalTime) {
-      setError("Check-in saati girmelisin.");
+      setError('Check-in saati girmelisin.');
       return;
     }
     if (!roomId) {
-      setError("Kedinin kalacagi odayi secmelisin.");
+      setError('Kedinin kalacagi odayi secmelisin.');
       return;
     }
     const selectedRoom = roomOptions.find((room) => room.id === roomId);
     if (roomOptions.length > 0 && !selectedRoom) {
-      setError("Secilen oda, rezervasyon oda tipiyle uyumlu olmali.");
+      setError('Secilen oda, rezervasyon oda tipiyle uyumlu olmali.');
       return;
     }
     if (blockedRoomIds.has(roomId) && roomId !== assignedRoomId) {
-      setError("Secilen oda su anda dolu, lütfen baska bir oda sec.");
+      setError('Secilen oda su anda dolu, lütfen baska bir oda sec.');
       return;
     }
 
     const normalizedFoodPlan =
-      foodPlan.brand ||
-      foodPlan.amountPerMeal ||
-      foodPlan.frequencyPerDay ||
-      foodPlan.instructions
+      foodPlan.brand || foodPlan.amountPerMeal || foodPlan.frequencyPerDay || foodPlan.instructions
         ? {
             brand: trimOrUndefined(foodPlan.brand),
             amountPerMeal: trimOrUndefined(foodPlan.amountPerMeal),
@@ -1114,9 +1184,7 @@ function CheckInFormModal({
       arrivalTime: new Date(arrivalTime).toISOString(),
       deliveredItems: normalizedItems.length ? normalizedItems : undefined,
       foodPlan: normalizedFoodPlan,
-      medicationPlan: normalizedMedications.length
-        ? normalizedMedications
-        : undefined,
+      medicationPlan: normalizedMedications.length ? normalizedMedications : undefined,
       weightKg: normalizeNumber(weightKg),
       catCondition: trimOrUndefined(catCondition),
       roomId,
@@ -1150,10 +1218,10 @@ function CheckInFormModal({
             onClick={handleSubmit}
             disabled={saving}
             className={clsx(
-              "inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              'inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70',
             )}
           >
-            {saving ? "Kaydediliyor..." : "Check-in'i Tamamla"}
+            {saving ? 'Kaydediliyor...' : "Check-in'i Tamamla"}
           </button>
         </>
       }
@@ -1161,10 +1229,10 @@ function CheckInFormModal({
       <div className="space-y-2">
         {plannedAssignment && (
           <div className="rounded-2xl border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-xs font-semibold text-[var(--admin-muted)]">
-            Planlanan oda:{" "}
-            <span className="text-[var(--admin-text-strong)]">{plannedAssignment.room.name}</span>{" "}
-            ({plannedAssignment.catCount} kedi ·{" "}
-            {plannedAssignment.allowRoomSharing === false ? "özel kullanım" : "paylaşımlı"})
+            Planlanan oda:{' '}
+            <span className="text-[var(--admin-text-strong)]">{plannedAssignment.room.name}</span> (
+            {plannedAssignment.catCount} kedi ·{' '}
+            {plannedAssignment.allowRoomSharing === false ? 'özel kullanım' : 'paylaşımlı'})
           </div>
         )}
         <label className="text-sm font-semibold text-[var(--admin-text-strong)]">
@@ -1189,26 +1257,18 @@ function CheckInFormModal({
             return (
               <option key={room.id} value={room.id} disabled={isBlocked}>
                 {`${room.name} - %${occupancyPercent} dolu (${occupiedCount}/${capacityForRoom})${
-                  isBlocked ? " (Dolu)" : ""
+                  isBlocked ? ' (Dolu)' : ''
                 }`}
               </option>
             );
           })}
         </select>
-        {roomsLoading && (
-          <p className="text-xs text-[var(--admin-muted)]">
-            Odalar yukleniyor...
-          </p>
-        )}
+        {roomsLoading && <p className="text-xs text-[var(--admin-muted)]">Odalar yukleniyor...</p>}
         {!roomsLoading && occupiedRoomsLoading && (
-          <p className="text-xs text-[var(--admin-muted)]">
-            Oda doluluk bilgisi guncelleniyor...
-          </p>
+          <p className="text-xs text-[var(--admin-muted)]">Oda doluluk bilgisi guncelleniyor...</p>
         )}
         {!roomsLoading && roomsError && (
-          <p className="text-xs font-semibold text-red-500">
-            Oda listesi alinamadi: {roomsError}
-          </p>
+          <p className="text-xs font-semibold text-red-500">Oda listesi alinamadi: {roomsError}</p>
         )}
         {!roomsLoading && !roomsError && !occupiedRoomsLoading && occupiedRoomsError && (
           <p className="text-xs font-semibold text-red-500">
@@ -1220,14 +1280,9 @@ function CheckInFormModal({
             Bu oda tipi icin aktif oda bulunamadi.
           </p>
         )}
-        {!roomsLoading &&
-          !roomsError &&
-          roomOptions.length > 0 &&
-          availableRooms.length === 0 && (
-            <p className="text-xs font-semibold text-red-500">
-              Bu oda tipi icin bos oda kalmadi.
-            </p>
-          )}
+        {!roomsLoading && !roomsError && roomOptions.length > 0 && availableRooms.length === 0 && (
+          <p className="text-xs font-semibold text-red-500">Bu oda tipi icin bos oda kalmadi.</p>
+        )}
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-2">
@@ -1292,9 +1347,7 @@ function CheckInFormModal({
           <input
             type="text"
             value={foodPlan.brand}
-            onChange={(e) =>
-              setFoodPlan((prev) => ({ ...prev, brand: e.target.value }))
-            }
+            onChange={(e) => setFoodPlan((prev) => ({ ...prev, brand: e.target.value }))}
             placeholder="Mama markası / tipi"
             className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
           />
@@ -1327,18 +1380,13 @@ function CheckInFormModal({
           </div>
           <textarea
             value={foodPlan.instructions}
-            onChange={(e) =>
-              setFoodPlan((prev) => ({ ...prev, instructions: e.target.value }))
-            }
+            onChange={(e) => setFoodPlan((prev) => ({ ...prev, instructions: e.target.value }))}
             rows={3}
             placeholder="Islak mama, oda sıcaklığı, alerji notu vb."
             className="w-full rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
           />
         </div>
-        <MedicationListEditor
-          medications={medications}
-          onChange={setMedications}
-        />
+        <MedicationListEditor medications={medications} onChange={setMedications} />
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -1364,9 +1412,7 @@ function CheckInFormModal({
           </label>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[var(--admin-text-strong)]">
-            Ek not
-          </label>
+          <label className="text-sm font-semibold text-[var(--admin-text-strong)]">Ek not</label>
           <textarea
             value={additionalNotes}
             onChange={(e) => setAdditionalNotes(e.target.value)}
@@ -1395,40 +1441,42 @@ function CheckOutFormModal({
   reservation: Reservation;
   saving: boolean;
 }) {
-  const [departureTime, setDepartureTime] = useState("");
+  const [departureTime, setDepartureTime] = useState('');
   const [returnedItems, setReturnedItems] = useState<ItemField[]>([]);
-  const [catCondition, setCatCondition] = useState("");
-  const [incidents, setIncidents] = useState("");
-  const [roomConditionNote, setRoomConditionNote] = useState("");
-  const [remainingFood, setRemainingFood] = useState("");
-  const [nextVisitNote, setNextVisitNote] = useState("");
-  const [handledBy, setHandledBy] = useState("");
-  const [additionalNotes, setAdditionalNotes] = useState("");
+  const [catCondition, setCatCondition] = useState('');
+  const [incidents, setIncidents] = useState('');
+  const [roomConditionNote, setRoomConditionNote] = useState('');
+  const [remainingFood, setRemainingFood] = useState('');
+  const [nextVisitNote, setNextVisitNote] = useState('');
+  const [handledBy, setHandledBy] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
 
     const departureSource =
-      reservation.checkOutForm?.departureTime ??
-      reservation.checkedOutAt ??
-      reservation.checkOut;
+      reservation.checkOutForm?.departureTime ?? reservation.checkedOutAt ?? reservation.checkOut;
 
     setDepartureTime(toDatetimeLocal(departureSource));
+    const returnedSource =
+      reservation.checkOutForm?.returnedItems ??
+      reservation.checkInForm?.deliveredItems ??
+      [];
     setReturnedItems(
-      (reservation.checkOutForm?.returnedItems ?? []).map((item) => ({
+      returnedSource.map((item) => ({
         label: item.label,
-        quantity: item.quantity ? String(item.quantity) : "",
-        note: item.note ?? "",
-      }))
+        quantity: item.quantity ? String(item.quantity) : '',
+        note: item.note ?? '',
+      })),
     );
-    setCatCondition(reservation.checkOutForm?.catCondition ?? "");
-    setIncidents(reservation.checkOutForm?.incidents ?? "");
-    setRoomConditionNote(reservation.checkOutForm?.roomConditionNote ?? "");
-    setRemainingFood(reservation.checkOutForm?.remainingFood ?? "");
-    setNextVisitNote(reservation.checkOutForm?.nextVisitNote ?? "");
-    setHandledBy(reservation.checkOutForm?.handledBy ?? "");
-    setAdditionalNotes(reservation.checkOutForm?.additionalNotes ?? "");
+    setCatCondition(reservation.checkOutForm?.catCondition ?? '');
+    setIncidents(reservation.checkOutForm?.incidents ?? '');
+    setRoomConditionNote(reservation.checkOutForm?.roomConditionNote ?? '');
+    setRemainingFood(reservation.checkOutForm?.remainingFood ?? '');
+    setNextVisitNote(reservation.checkOutForm?.nextVisitNote ?? '');
+    setHandledBy(reservation.checkOutForm?.handledBy ?? '');
+    setAdditionalNotes(reservation.checkOutForm?.additionalNotes ?? '');
     setError(null);
   }, [open, reservation]);
 
@@ -1444,23 +1492,17 @@ function CheckOutFormModal({
       .filter((item) => item.label.length > 0);
 
     if (!departureTime) {
-      setError("Check-out saati girmelisin.");
+      setError('Check-out saati girmelisin.');
       return;
     }
-
-    if (!normalizedItems.length) {
-      setError("Geri teslim edilen eşyaları eklemelisin.");
-      return;
-    }
-
     if (!catCondition.trim()) {
-      setError("Çıkış durumunu yazmalısın.");
+      setError('Çıkış durumunu yazmalısın.');
       return;
     }
 
     const payload: CheckOutForm = {
       departureTime: new Date(departureTime).toISOString(),
-      returnedItems: normalizedItems,
+      returnedItems: normalizedItems.length ? normalizedItems : undefined,
       catCondition: trimOrUndefined(catCondition),
       incidents: trimOrUndefined(incidents),
       roomConditionNote: trimOrUndefined(roomConditionNote),
@@ -1495,7 +1537,7 @@ function CheckOutFormModal({
             disabled={saving}
             className="inline-flex items-center gap-2 rounded-full bg-peach-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {saving ? "Kaydediliyor..." : "Check-out'u Tamamla"}
+            {saving ? 'Kaydediliyor...' : "Check-out'u Tamamla"}
           </button>
         </>
       }
@@ -1611,12 +1653,8 @@ function ModalShell({
             <p className="text-xs font-semibold uppercase tracking-[0.35em] admin-muted">
               Operasyon
             </p>
-            <h3 className="text-xl font-semibold text-[var(--admin-text-strong)]">
-              {title}
-            </h3>
-            {description && (
-              <p className="text-sm admin-muted">{description}</p>
-            )}
+            <h3 className="text-xl font-semibold text-[var(--admin-text-strong)]">{title}</h3>
+            {description && <p className="text-sm admin-muted">{description}</p>}
           </div>
           <button
             type="button"
@@ -1626,12 +1664,8 @@ function ModalShell({
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <div className="mt-4 max-h-[70vh] space-y-4 overflow-y-auto pr-1">
-          {children}
-        </div>
-        {footer && (
-          <div className="mt-5 flex flex-wrap justify-end gap-2">{footer}</div>
-        )}
+        <div className="mt-4 max-h-[70vh] space-y-4 overflow-y-auto pr-1">{children}</div>
+        {footer && <div className="mt-5 flex flex-wrap justify-end gap-2">{footer}</div>}
       </div>
     </div>
   );
@@ -1651,15 +1685,15 @@ function EditableItemList({
   placeholder?: string;
 }) {
   const [draft, setDraft] = useState<ItemField>({
-    label: "",
-    quantity: "",
-    note: "",
+    label: '',
+    quantity: '',
+    note: '',
   });
 
   const handleAdd = () => {
     if (!draft.label.trim()) return;
-    const trimmedQuantity = draft.quantity?.trim() ?? "";
-    const trimmedNote = draft.note?.trim() ?? "";
+    const trimmedQuantity = draft.quantity?.trim() ?? '';
+    const trimmedNote = draft.note?.trim() ?? '';
     onChange([
       ...items,
       {
@@ -1668,7 +1702,7 @@ function EditableItemList({
         note: trimmedNote,
       },
     ]);
-    setDraft({ label: "", quantity: "", note: "" });
+    setDraft({ label: '', quantity: '', note: '' });
   };
 
   const handleRemove = (index: number) => {
@@ -1692,19 +1726,15 @@ function EditableItemList({
         <input
           type="text"
           value={draft.label}
-          onChange={(e) =>
-            setDraft((prev) => ({ ...prev, label: e.target.value }))
-          }
-          placeholder={placeholder ?? "Eşya"}
+          onChange={(e) => setDraft((prev) => ({ ...prev, label: e.target.value }))}
+          placeholder={placeholder ?? 'Eşya'}
           className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
         <input
           type="number"
           min="0"
           value={draft.quantity}
-          onChange={(e) =>
-            setDraft((prev) => ({ ...prev, quantity: e.target.value }))
-          }
+          onChange={(e) => setDraft((prev) => ({ ...prev, quantity: e.target.value }))}
           placeholder="Adet"
           className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
@@ -1712,9 +1742,7 @@ function EditableItemList({
           <input
             type="text"
             value={draft.note}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, note: e.target.value }))
-            }
+            onChange={(e) => setDraft((prev) => ({ ...prev, note: e.target.value }))}
             placeholder="Not"
             className="w-full rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
           />
@@ -1730,9 +1758,7 @@ function EditableItemList({
       </div>
       <div className="flex flex-wrap gap-2">
         {items.length === 0 && (
-          <span className="text-xs font-semibold text-[var(--admin-muted)]">
-            Henüz ekleme yok.
-          </span>
+          <span className="text-xs font-semibold text-[var(--admin-muted)]">Henüz ekleme yok.</span>
         )}
         {items.map((item, idx) => (
           <span
@@ -1740,14 +1766,8 @@ function EditableItemList({
             className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--admin-text-strong)] admin-border"
           >
             <span>{item.label}</span>
-            {item.quantity && (
-              <span className="text-[var(--admin-muted)]">
-                x{item.quantity}
-              </span>
-            )}
-            {item.note && (
-              <span className="text-[var(--admin-muted)]">{item.note}</span>
-            )}
+            {item.quantity && <span className="text-[var(--admin-muted)]">x{item.quantity}</span>}
+            {item.note && <span className="text-[var(--admin-muted)]">{item.note}</span>}
             <button
               type="button"
               onClick={() => handleRemove(idx)}
@@ -1771,11 +1791,11 @@ function MedicationListEditor({
   onChange: (next: MedicationField[]) => void;
 }) {
   const [draft, setDraft] = useState<MedicationField>({
-    name: "",
-    dosage: "",
-    schedule: "",
+    name: '',
+    dosage: '',
+    schedule: '',
     withFood: false,
-    notes: "",
+    notes: '',
   });
 
   const handleAdd = () => {
@@ -1791,11 +1811,11 @@ function MedicationListEditor({
       },
     ]);
     setDraft({
-      name: "",
-      dosage: "",
-      schedule: "",
+      name: '',
+      dosage: '',
+      schedule: '',
       withFood: false,
-      notes: "",
+      notes: '',
     });
   };
 
@@ -1820,18 +1840,14 @@ function MedicationListEditor({
         <input
           type="text"
           value={draft.name}
-          onChange={(e) =>
-            setDraft((prev) => ({ ...prev, name: e.target.value }))
-          }
+          onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
           placeholder="İlaç / takviye adı"
           className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
         <input
           type="text"
           value={draft.dosage}
-          onChange={(e) =>
-            setDraft((prev) => ({ ...prev, dosage: e.target.value }))
-          }
+          onChange={(e) => setDraft((prev) => ({ ...prev, dosage: e.target.value }))}
           placeholder="Doz"
           className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
@@ -1840,9 +1856,7 @@ function MedicationListEditor({
         <input
           type="text"
           value={draft.schedule}
-          onChange={(e) =>
-            setDraft((prev) => ({ ...prev, schedule: e.target.value }))
-          }
+          onChange={(e) => setDraft((prev) => ({ ...prev, schedule: e.target.value }))}
           placeholder="Saat / periyot"
           className="rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
@@ -1850,9 +1864,7 @@ function MedicationListEditor({
           <input
             type="checkbox"
             checked={draft.withFood}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, withFood: e.target.checked }))
-            }
+            onChange={(e) => setDraft((prev) => ({ ...prev, withFood: e.target.checked }))}
             className="h-4 w-4 rounded border-[var(--admin-border)] text-peach-500 focus:ring-peach-300"
           />
           Yemekten sonra
@@ -1862,9 +1874,7 @@ function MedicationListEditor({
         <input
           type="text"
           value={draft.notes}
-          onChange={(e) =>
-            setDraft((prev) => ({ ...prev, notes: e.target.value }))
-          }
+          onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
           placeholder="Not"
           className="w-full rounded-xl border bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-strong)] placeholder:text-[var(--admin-muted)] focus:outline-none focus:ring-2 focus:ring-peach-300 admin-border"
         />
@@ -1879,9 +1889,7 @@ function MedicationListEditor({
       </div>
       <div className="flex flex-wrap gap-2">
         {medications.length === 0 && (
-          <span className="text-xs font-semibold text-[var(--admin-muted)]">
-            Henüz ekleme yok.
-          </span>
+          <span className="text-xs font-semibold text-[var(--admin-muted)]">Henüz ekleme yok.</span>
         )}
         {medications.map((med, idx) => (
           <span
@@ -1889,12 +1897,8 @@ function MedicationListEditor({
             className="inline-flex items-center gap-2 rounded-full border bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--admin-text-strong)] admin-border"
           >
             <span>{med.name}</span>
-            {med.dosage && (
-              <span className="text-[var(--admin-muted)]">{med.dosage}</span>
-            )}
-            {med.schedule && (
-              <span className="text-[var(--admin-muted)]">{med.schedule}</span>
-            )}
+            {med.dosage && <span className="text-[var(--admin-muted)]">{med.dosage}</span>}
+            {med.schedule && <span className="text-[var(--admin-muted)]">{med.schedule}</span>}
             {med.withFood && (
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-emerald-700">
                 Yemek
@@ -1917,33 +1921,33 @@ function MedicationListEditor({
 
 function buildTimeline(status?: ReservationStatus): TimelineStep[] {
   const steps = [
-    { key: ReservationStatus.PENDING, label: "Oluşturuldu" },
-    { key: ReservationStatus.CONFIRMED, label: "Onaylandı" },
-    { key: ReservationStatus.CHECKED_IN, label: "Check-in" },
-    { key: ReservationStatus.CHECKED_OUT, label: "Check-out" },
-    { key: ReservationStatus.CANCELLED, label: "İptal" },
+    { key: ReservationStatus.PENDING, label: 'Oluşturuldu' },
+    { key: ReservationStatus.CONFIRMED, label: 'Onaylandı' },
+    { key: ReservationStatus.CHECKED_IN, label: 'Check-in' },
+    { key: ReservationStatus.CHECKED_OUT, label: 'Check-out' },
+    { key: ReservationStatus.CANCELLED, label: 'İptal' },
   ];
   if (!status) {
     return steps.map((step, idx) => ({
       label: step.label,
-      at: idx === 0 ? "Oluşturma tarihi" : "Plan",
-      state: idx === 0 ? "active" : "pending",
+      at: idx === 0 ? 'Oluşturma tarihi' : 'Plan',
+      state: idx === 0 ? 'active' : 'pending',
     }));
   }
 
   if (status === ReservationStatus.CANCELLED) {
     return steps.map((step, idx) => {
-      let state: "done" | "active" | "pending" | "disabled" = "pending";
+      let state: 'done' | 'active' | 'pending' | 'disabled' = 'pending';
       if (step.key === ReservationStatus.PENDING) {
-        state = "done";
+        state = 'done';
       } else if (step.key === ReservationStatus.CANCELLED) {
-        state = "active";
+        state = 'active';
       } else {
-        state = "disabled";
+        state = 'disabled';
       }
       return {
         label: step.label,
-        at: idx === 0 ? "Oluşturma tarihi" : "Plan",
+        at: idx === 0 ? 'Oluşturma tarihi' : 'Plan',
         state,
       };
     });
@@ -1959,27 +1963,24 @@ function buildTimeline(status?: ReservationStatus): TimelineStep[] {
   const currentIdx = order.indexOf(status);
 
   return steps.map((step, idx) => {
-    let state: "done" | "active" | "pending" | "disabled" = "pending";
+    let state: 'done' | 'active' | 'pending' | 'disabled' = 'pending';
     if (idx < currentIdx) {
-      state = "done";
+      state = 'done';
     } else if (idx === currentIdx) {
-      state = "done";
+      state = 'done';
     } else if (idx === currentIdx + 1) {
-      state = "active";
+      state = 'active';
     }
 
     return {
       label: step.label,
-      at: idx === 0 ? "Oluşturma tarihi" : "Plan",
+      at: idx === 0 ? 'Oluşturma tarihi' : 'Plan',
       state,
     };
   });
 }
 
-function isLaterStatus(
-  current: ReservationStatus | undefined,
-  step: ReservationStatus
-) {
+function isLaterStatus(current: ReservationStatus | undefined, step: ReservationStatus) {
   if (!current) return false;
   const order = [
     ReservationStatus.PENDING,
@@ -1992,29 +1993,29 @@ function isLaterStatus(
 }
 
 function mapStatus(status: ReservationStatus) {
-  if (status === ReservationStatus.PENDING) return "created";
-  if (status === ReservationStatus.CONFIRMED) return "confirmed";
-  if (status === ReservationStatus.CHECKED_IN) return "checkin";
-  if (status === ReservationStatus.CHECKED_OUT) return "checkout";
-  return "cancelled";
+  if (status === ReservationStatus.PENDING) return 'created';
+  if (status === ReservationStatus.CONFIRMED) return 'confirmed';
+  if (status === ReservationStatus.CHECKED_IN) return 'checkin';
+  if (status === ReservationStatus.CHECKED_OUT) return 'checkout';
+  return 'cancelled';
 }
 
 function formatStatus(status: ReservationStatus) {
-  if (status === ReservationStatus.PENDING) return "Oluşturuldu";
-  if (status === ReservationStatus.CONFIRMED) return "Onaylandı";
-  if (status === ReservationStatus.CHECKED_IN) return "Check-in";
-  if (status === ReservationStatus.CHECKED_OUT) return "Check-out";
-  if (status === ReservationStatus.CANCELLED) return "İptal";
+  if (status === ReservationStatus.PENDING) return 'Oluşturuldu';
+  if (status === ReservationStatus.CONFIRMED) return 'Onaylandı';
+  if (status === ReservationStatus.CHECKED_IN) return 'Check-in';
+  if (status === ReservationStatus.CHECKED_OUT) return 'Check-out';
+  if (status === ReservationStatus.CANCELLED) return 'İptal';
   return status;
 }
 
 function formatDateTime(value: string) {
   const d = new Date(value);
-  return d.toLocaleString("tr-TR", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
+  return d.toLocaleString('tr-TR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -2027,16 +2028,16 @@ function calculateNights(checkIn: string, checkOut: string) {
 
 function formatCurrency(value: number | string) {
   const n = Number(value) || 0;
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency: "TRY",
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(n);
 }
 
 function toDatetimeLocal(value?: string | null) {
-  if (!value) return "";
+  if (!value) return '';
   const date = new Date(value);
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60000);
@@ -2044,8 +2045,23 @@ function toDatetimeLocal(value?: string | null) {
 }
 
 function trimOrUndefined(value?: string | null) {
-  const trimmed = (value ?? "").trim();
+  const trimmed = (value ?? '').trim();
   return trimmed.length ? trimmed : undefined;
+}
+
+function formatPaymentMethod(method?: string) {
+  if (method === 'CASH') return 'Nakit';
+  if (method === 'CARD') return 'Kart';
+  if (method === 'ONLINE') return 'Online';
+  return method && method.length ? method : 'Bilinmiyor';
+}
+
+function formatPaymentStatus(status?: string) {
+  if (status === 'PAID') return 'PAID';
+  if (status === 'PENDING') return 'PENDING';
+  if (status === 'FAILED') return 'FAILED';
+  if (status === 'REFUNDED') return 'REFUNDED';
+  return status && status.length ? status : '-';
 }
 
 function normalizeNumber(value?: string | null) {

@@ -41,6 +41,54 @@ export type AdminCatListResponse = {
   pageSize: number;
 };
 
+export type AdminCustomerCat = {
+  id: string;
+  name: string;
+  breed?: string | null;
+  gender?: string | null;
+  birthDate?: string | null;
+  weightKg?: number | string | null;
+  isNeutered?: boolean | null;
+  photoUrl?: string | null;
+  medicalNotes?: string | null;
+  dietaryNotes?: string | null;
+  createdAt?: string | null;
+};
+
+export type AdminCustomerReservationCat = {
+  id: string;
+  name: string;
+  photoUrl?: string | null;
+};
+
+export type AdminCustomerReservation = {
+  id: string;
+  code: string;
+  status: string;
+  checkIn: string;
+  checkOut: string;
+  totalPrice: number | string;
+  roomType?: { id: string; name: string } | null;
+  cats: AdminCustomerReservationCat[];
+};
+
+export type AdminCustomerDetail = {
+  id: string;
+  userId: string;
+  name?: string | null;
+  email: string;
+  phone?: string | null;
+  address?: string | null;
+  preferredVet?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  notes?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  cats: AdminCustomerCat[];
+  reservations: AdminCustomerReservation[];
+};
+
 export type AdminRoomListResponse = {
   items: Room[];
   total: number;
@@ -94,7 +142,7 @@ export const AdminApi = {
   listUsers: () => clientRequest<AdminUser[]>('/api/users'),
   createUser: (payload: CreateManagedUserInput) =>
     clientRequest<AdminUser>(
-      '/api/users/management',
+      '/api/users',
       {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -219,6 +267,8 @@ export const AdminApi = {
         query: params,
       },
     ),
+  getCustomer: (id: string) =>
+    clientRequest<AdminCustomerDetail>(`/api/admin/customers/${id}`),
   deleteCustomer: (id: string) =>
     clientRequest(
       `/api/admin/customers/${id}`,

@@ -10,6 +10,23 @@ export const ReservationStatus = {
 
 export type ReservationStatus = ValueOf<typeof ReservationStatus>;
 
+export const PaymentStatus = {
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+  FAILED: 'FAILED',
+  REFUNDED: 'REFUNDED',
+} as const;
+
+export type PaymentStatus = ValueOf<typeof PaymentStatus>;
+
+export const PaymentMethod = {
+  CASH: 'CASH',
+  CARD: 'CARD',
+  ONLINE: 'ONLINE',
+} as const;
+
+export type PaymentMethod = ValueOf<typeof PaymentMethod>;
+
 export const CareTaskStatus = {
   OPEN: 'OPEN',
   IN_PROGRESS: 'IN_PROGRESS',
