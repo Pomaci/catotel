@@ -20,7 +20,9 @@ export function LoginForm() {
 
   const resolveDestination = (role?: string | null) => {
     if (role === "ADMIN") return "/dashboard/admin";
-    if (role === "STAFF" || role === "MANAGER") return "/dashboard/staff";
+    if (role === "STAFF") return "/dashboard/staff";
+    if (role === "MANAGER") return "/dashboard/manager";
+    if (role === "CUSTOMER") return "/dashboard/guest";
     return "/dashboard";
   };
 

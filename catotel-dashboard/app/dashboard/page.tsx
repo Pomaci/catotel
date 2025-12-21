@@ -22,8 +22,16 @@ export default function DashboardPage() {
       router.replace("/dashboard/admin");
       return;
     }
-    if (user?.role === "STAFF" || user?.role === "MANAGER") {
+    if (user?.role === "STAFF") {
       router.replace("/dashboard/staff");
+      return;
+    }
+    if (user?.role === "MANAGER") {
+      router.replace("/dashboard/manager");
+      return;
+    }
+    if (user?.role === "CUSTOMER") {
+      router.replace("/dashboard/guest");
       return;
     }
   }, [bootstrapping, isAuthenticated, user, router]);
@@ -33,7 +41,8 @@ export default function DashboardPage() {
     bootstrapping ||
     user?.role === "ADMIN" ||
     user?.role === "STAFF" ||
-    user?.role === "MANAGER"
+    user?.role === "MANAGER" ||
+    user?.role === "CUSTOMER"
   ) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">

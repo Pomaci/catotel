@@ -6,7 +6,7 @@ import { AdminShell } from "@/components/admin/AdminShell";
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
   return (
-    <RoleGate roles={["STAFF", "MANAGER", "ADMIN"]} redirectTo="/dashboard">
+    <RoleGate roles={["STAFF"]} redirectTo="/dashboard">
       <AdminShell>{children}</AdminShell>
     </RoleGate>
   );

@@ -18,6 +18,8 @@ import {
   Moon,
   Sun,
   PawPrint,
+  CreditCard,
+  User,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -43,13 +45,27 @@ const adminNavItems: NavItem[] = [
 ];
 
 const staffNavItems: NavItem[] = [
-  { label: "Personel Paneli", href: "/dashboard/staff", icon: LayoutGrid },
-  { label: "Rezervasyonlar", href: "/dashboard/reservations", icon: CalendarCheck2 },
+  { label: "Bugun", href: "/dashboard/staff", icon: LayoutGrid },
+  { label: "Check-in / Check-out", href: "/dashboard/reservations", icon: CalendarCheck2 },
   { label: "Gorevler", href: "/dashboard/tasks", icon: ClipboardList },
+  { label: "Hesap", href: "/dashboard/profile", icon: User },
+];
+
+const managerNavItems: NavItem[] = [
+  { label: "Operasyon Dashboard", href: "/dashboard/manager", icon: LayoutGrid },
+  { label: "Rezervasyonlar", href: "/dashboard/reservations", icon: CalendarCheck2 },
+  { label: "Oda & Atamalar", href: "/dashboard/rooms", icon: Home },
+  { label: "Musteriler", href: "/dashboard/customers", icon: Users2 },
+  { label: "Kediler", href: "/dashboard/cats", icon: Cat },
+  { label: "Gorevler", href: "/dashboard/tasks", icon: ClipboardList },
+  { label: "Odemeler", href: "/dashboard/manager/payments", icon: CreditCard },
+  { label: "Raporlar", href: "/dashboard/manager/reports", icon: BarChart3 },
+  { label: "Ayarlar", href: "/dashboard/manager/settings", icon: Settings2 },
 ];
 
 const buildNavItems = (role?: string | null): NavItem[] => {
   if (role === "STAFF") return staffNavItems;
+  if (role === "MANAGER") return managerNavItems;
   return adminNavItems;
 };
 
@@ -57,6 +73,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const role = user?.role ?? "ADMIN";
+  const normalizedRole = role.toLowerCase();
   const [mode, setMode] = useState<ThemeMode>("light");
   const [mounted, setMounted] = useState(false);
   const navItems = useMemo(() => buildNavItems(role), [role]);
@@ -86,7 +103,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className={clsx("admin-shell flex min-h-screen text-base")} data-theme={mode}>
+    <div
+      className={clsx("admin-shell flex min-h-screen text-base")}
+      data-theme={mode}
+      data-role={normalizedRole}
+    >
       <AdminSidebar
         mode={mode}
         onToggleTheme={toggleMode}
@@ -111,7 +132,12 @@ function AdminHeader({ mode, onToggleTheme, role }: { mode: ThemeMode; onToggleT
     typeof nameCandidate === "string" && nameCandidate.trim().length > 0 ? nameCandidate : "Yonetici";
   const resolvedEmail =
     typeof emailCandidate === "string" && emailCandidate.trim().length > 0 ? emailCandidate : "onur@miaow.app";
-  const panelLabel = role === "STAFF" ? "Operasyon Paneli" : "Admin Paneli";
+  const panelLabel =
+    role === "STAFF"
+      ? "Operasyon Paneli"
+      : role === "MANAGER"
+        ? "Operasyon Merkezi"
+        : "Admin Paneli";
   return (
     <header className="flex h-20 items-center justify-between border-b bg-[var(--admin-surface-alt)] px-6 lg:px-10 admin-border">
       <div className="flex items-center gap-3">
@@ -148,8 +174,8 @@ type SidebarProps = {
 };
 
 function AdminSidebar({ mode, onToggleTheme, pathname, navItems, role }: SidebarProps) {
-  const brandTitle = role === "STAFF" ? "Miaow Ops" : "Miaow Admin";
-  const brandSubtitle = role === "STAFF" ? "Crew" : "Control";
+  const brandTitle = role === "STAFF" ? "Miaow Ops" : role === "MANAGER" ? "Miaow Ops" : "Miaow Admin";
+  const brandSubtitle = role === "STAFF" ? "Crew" : role === "MANAGER" ? "Manager" : "Control";
   return (
     <aside className="admin-sidebar hidden w-64 flex-col lg:flex" aria-label="Sol menu">
       <div className="flex items-center gap-3 border-b px-6 py-5 admin-border">

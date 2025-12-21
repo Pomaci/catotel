@@ -59,6 +59,28 @@ textarea {
   --admin-highlight-muted: rgba(60, 141, 144, 0.22);
 }
 
+.admin-shell[data-role='manager'] {
+  --admin-bg: #f3f7f7;
+  --admin-sidebar: #f0f6f5;
+  --admin-highlight: rgba(75, 177, 161, 0.2);
+  --admin-highlight-muted: rgba(75, 177, 161, 0.12);
+}
+
+.admin-shell[data-role='staff'] {
+  --admin-bg: #f8f3ec;
+  --admin-sidebar: #f6efe6;
+  --admin-highlight: rgba(255, 182, 115, 0.25);
+  --admin-highlight-muted: rgba(255, 182, 115, 0.15);
+}
+
+.admin-shell[data-role='manager'][data-theme='dark'],
+.admin-shell[data-role='staff'][data-theme='dark'] {
+  --admin-bg: #0f1115;
+  --admin-sidebar: #121418;
+  --admin-highlight: rgba(255, 182, 115, 0.28);
+  --admin-highlight-muted: rgba(60, 141, 144, 0.22);
+}
+
 .admin-sidebar {
   background: var(--admin-sidebar);
   border-right: 1px solid var(--admin-sidebar-border);
