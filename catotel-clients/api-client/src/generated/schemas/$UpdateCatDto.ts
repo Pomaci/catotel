@@ -16,6 +16,10 @@ export const $UpdateCatDto = {
         birthDate: {
             type: 'string',
         },
+        isNeutered: {
+            type: 'boolean',
+            description: `Whether the cat is neutered`,
+        },
         weightKg: {
             type: 'number',
             description: `Weight in kg`,

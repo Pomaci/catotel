@@ -19,7 +19,23 @@ export function AuthForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const redirectToDashboard = (role?: string) => {
-      router.replace(role === "ADMIN" ? "/dashboard/admin" : "/dashboard");
+      if (role === "ADMIN") {
+        router.replace("/dashboard/admin");
+        return;
+      }
+      if (role === "STAFF") {
+        router.replace("/dashboard/staff");
+        return;
+      }
+      if (role === "MANAGER") {
+        router.replace("/dashboard/manager");
+        return;
+      }
+      if (role === "CUSTOMER") {
+        router.replace("/dashboard/guest");
+        return;
+      }
+      router.replace("/dashboard");
     };
     if (mode === "login") {
       const profile = await login(email, password);

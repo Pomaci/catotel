@@ -77,7 +77,7 @@ function TaskCard({
       <p className="font-semibold">{formatEnum(task.type)}</p>
       <p className="text-xs text-slate-500">
         {task.cat?.name ?? "Belirtilmedi"} ·{" "}
-        {task.reservation?.room.name ?? "Oda yok"}
+        {task.reservation?.roomType?.name ?? "Oda yok"}
       </p>
       <p className="mt-2 text-xs text-slate-500">
         Planlanan: {formatDate(task.scheduledAt, { dateStyle: "medium" })}
@@ -98,4 +98,3 @@ function TaskCard({
     </div>
   );
 }
-

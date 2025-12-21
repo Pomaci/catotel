@@ -8,6 +8,10 @@ export type CreateCatDto = {
     gender?: 'FEMALE' | 'MALE' | 'UNKNOWN';
     birthDate?: string;
     /**
+     * Whether the cat is neutered
+     */
+    isNeutered?: boolean;
+    /**
      * Weight in kg
      */
     weightKg?: number;

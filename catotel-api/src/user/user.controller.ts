@@ -24,6 +24,12 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { CreateManagedUserDto } from './dto/create-managed-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { CustomerSearchDto } from './dto/customer-search.dto';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @ApiTags('Users')
 @Controller('users')
@@ -45,12 +51,16 @@ export class UserController {
   async getMe(@Req() req: Request) {
     const userId = req.user?.sub;
     if (!userId) {
-      throw new NotFoundException('User ID not found in token');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.AUTH_USER_ID_MISSING),
+      );
     }
 
     const user = await this.userService.findById(userId);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.USER_NOT_FOUND),
+      );
     }
 
     const { id, email, name, role, customer, staff } = user;
@@ -90,6 +100,24 @@ export class UserController {
   @Post('management')
   async createManagedUser(@Body() body: CreateManagedUserDto) {
     return this.userService.createManagedUser(body);
+  }
+
+  @ApiOperation({ summary: 'Create a customer account (staff/admin)' })
+  @ApiBearerAuth('access-token')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  @Post('customers')
+  async createCustomer(@Body() body: CreateCustomerDto) {
+    return this.userService.createCustomerAsStaff(body);
+  }
+
+  @ApiOperation({ summary: 'Search customers by email/phone/name' })
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ type: [CustomerSearchDto] })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  @Get('customers/search')
+  async searchCustomers(@Req() req: Request) {
+    const query = (req.query.q as string) ?? '';
+    return this.userService.searchCustomers(query);
   }
 
   @ApiOperation({ summary: 'Update user role' })

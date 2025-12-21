@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,7 @@ export default function DashboardScreen() {
   const { accessToken, bootstrapping, user, logout } = useAuth();
   const { profile, reservations, rooms, tasks, loading, canManageTasks } =
     useDashboardData();
+  const router = useRouter();
 
   const isAdmin = useMemo(
     () => (user?.role ?? "").toUpperCase() === "ADMIN",
@@ -83,11 +84,17 @@ export default function DashboardScreen() {
     );
   }
 
+  const userNameValue = user?.name as unknown;
+  const resolvedUserName =
+    typeof userNameValue === "string" && userNameValue.trim().length > 0
+      ? userNameValue
+      : null;
+  const resolvedProfileName =
+    typeof profile?.user?.name === "string" && profile.user.name.trim().length > 0
+      ? profile.user.name
+      : null;
   const displayName =
-    (user?.name && user.name.length > 0 && user.name) ||
-    profile?.user.name ||
-    user?.email ||
-    "Yonetici";
+    resolvedUserName ?? resolvedProfileName ?? user?.email ?? "Yonetici";
 
   return (
     <Screen>
@@ -96,6 +103,7 @@ export default function DashboardScreen() {
           name={displayName}
           notifications={tasks.length}
           onLogout={logout}
+          onNavigate={(href) => router.push(href)}
         />
 
         <ScrollView
@@ -146,24 +154,26 @@ function Header({
   name,
   notifications,
   onLogout,
+  onNavigate,
 }: {
   name: string;
   notifications: number;
   onLogout(): void;
+  onNavigate(href: string): void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   return (
     <View style={headerStyles.container}>
       <Pressable
-        style={headerStyles.left}
-        onPress={() => setMenuOpen((prev) => !prev)}
-        testID="avatar-menu-button"
+        style={headerStyles.menuButton}
+        onPress={() => {
+          setNavOpen((prev) => !prev);
+          setProfileOpen(false);
+        }}
+        testID="nav-menu-button"
       >
-        <View style={headerStyles.avatar}>
-          <Text style={headerStyles.avatarText}>
-            {name.slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
+        <Feather name="menu" size={22} color={colors.textPrimary} />
       </Pressable>
       <View style={headerStyles.center}>
         <Text style={headerStyles.title}>Hos geldin, {name}!</Text>
@@ -180,29 +190,71 @@ function Header({
             </View>
           )}
         </View>
+        <Pressable
+          style={headerStyles.avatar}
+          onPress={() => {
+            setProfileOpen((prev) => !prev);
+            setNavOpen(false);
+          }}
+          testID="avatar-menu-button"
+        >
+          <Text style={headerStyles.avatarText}>
+            {name.slice(0, 1).toUpperCase()}
+          </Text>
+        </Pressable>
       </View>
-      {menuOpen && (
-        <>
-          <Pressable
-            style={headerStyles.backdrop}
-            onPress={() => setMenuOpen(false)}
-            testID="menu-backdrop"
-          />
-          <View style={headerStyles.menu}>
-            <Text style={headerStyles.menuTitle}>Hesap</Text>
+      {(navOpen || profileOpen) && (
+        <Pressable
+          style={headerStyles.backdrop}
+          onPress={() => {
+            setNavOpen(false);
+            setProfileOpen(false);
+          }}
+          testID="menu-backdrop"
+        />
+      )}
+      {navOpen && (
+        <View style={[headerStyles.menu, { top: spacing.xl + spacing.md, left: spacing.lg }]}>
+          <Text style={headerStyles.menuTitle}>Menü</Text>
+          <View style={headerStyles.menuNav}>
             <Pressable
-              style={headerStyles.menuItem}
+              style={headerStyles.navItem}
               onPress={() => {
-                setMenuOpen(false);
-                onLogout();
+                setNavOpen(false);
+                onNavigate("/dashboard");
               }}
-              testID="logout-button"
             >
-              <Feather name="log-out" size={16} color={colors.textPrimary} />
-              <Text style={headerStyles.logoutLabel}>Cikis yap</Text>
+              <Feather name="grid" size={16} color={colors.textPrimary} />
+              <Text style={headerStyles.navLabel}>Dashboard</Text>
+            </Pressable>
+            <Pressable
+              style={headerStyles.navItem}
+              onPress={() => {
+                setNavOpen(false);
+                onNavigate("/dashboard/reservations");
+              }}
+            >
+              <Feather name="calendar" size={16} color={colors.textPrimary} />
+              <Text style={headerStyles.navLabel}>Rezervasyonlar</Text>
             </Pressable>
           </View>
-        </>
+        </View>
+      )}
+      {profileOpen && (
+        <View style={[headerStyles.menu, { top: spacing.xl + spacing.md, right: spacing.lg }]}>
+          <Text style={headerStyles.menuTitle}>Hesap</Text>
+          <Pressable
+            style={headerStyles.menuItem}
+            onPress={() => {
+              setProfileOpen(false);
+              onLogout();
+            }}
+            testID="logout-button"
+          >
+            <Feather name="log-out" size={16} color={colors.textPrimary} />
+            <Text style={headerStyles.logoutLabel}>Cikis yap</Text>
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -583,8 +635,6 @@ const headerStyles = StyleSheet.create({
   },
   menu: {
     position: "absolute",
-    top: spacing.xl + spacing.md,
-    left: spacing.lg,
     width: 180,
     backgroundColor: colors.card,
     borderRadius: radii.md,
@@ -610,14 +660,38 @@ const headerStyles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  left: {
+  menuNav: {
+    gap: spacing.xs,
+  },
+  navItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  navLabel: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: spacing.md,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.accentMuted,
+    width: 40,
+    height: 40,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },

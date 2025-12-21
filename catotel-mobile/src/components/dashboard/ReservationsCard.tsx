@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+﻿import { StyleSheet, Text, View } from "react-native";
 import type { Reservation } from "@/types/hotel";
 import { Card } from "@/components/ui/Card";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -27,44 +27,56 @@ export function ReservationsCard({ reservations, loading, onRefresh }: Props) {
         }
       />
 
-      {loading && <Text style={styles.info}>Rezervasyonlar yükleniyor...</Text>}
+      {loading && <Text style={styles.info}>Rezervasyonlar yukleniyor...</Text>}
       {!loading && reservations.length === 0 && (
         <Text style={styles.info}>
-          Henüz rezervasyon oluşturmadın. Dashboard üzerinden kolayca yapabilirsin.
+          Henuz rezervasyon olusturmadin. Dashboard uzerinden kolayca
+          yapabilirsin.
         </Text>
       )}
 
       <View style={styles.list}>
-        {sorted.map((reservation) => (
-          <View key={reservation.id} style={styles.reservationCard}>
-            <View style={styles.row}>
-              <Text style={styles.code}>{reservation.code}</Text>
-              <Text
-                style={[
-                  styles.status,
-                  statusStyles[reservation.status] ?? styles.statusDefault,
-                ]}
-              >
-                {formatEnum(reservation.status)}
-              </Text>
-            </View>
-            <Text style={styles.meta}>
-              {reservation.room.name} · {formatDate(reservation.checkIn)} –{" "}
-              {formatDate(reservation.checkOut)}
-            </Text>
-            <Text style={styles.total}>{formatCurrency(reservation.totalPrice)}</Text>
-            <View style={styles.cats}>
-              {reservation.cats.map((entry) => (
-                <Text key={entry.cat.id} style={styles.catChip}>
-                  {entry.cat.name}
+        {sorted.map((reservation) => {
+          const roomLabel =
+            reservation.roomAssignments?.[0]?.room?.name ??
+            reservation.roomType?.name ??
+            "Oda atanmadi";
+          return (
+            <View key={reservation.id} style={styles.reservationCard}>
+              <View style={styles.row}>
+                <Text style={styles.code}>{reservation.code}</Text>
+                <Text
+                  style={[
+                    styles.status,
+                    statusStyles[reservation.status] ?? styles.statusDefault,
+                  ]}
+                >
+                  {formatEnum(reservation.status)}
                 </Text>
-              ))}
+              </View>
+              <Text style={styles.meta}>
+                {roomLabel} - {formatDate(reservation.checkIn)} - {formatDate(
+                  reservation.checkOut,
+                )}
+              </Text>
+              <Text style={styles.total}>
+                {formatCurrency(reservation.totalPrice)}
+              </Text>
+              <View style={styles.cats}>
+                {reservation.cats.map((entry) => (
+                  <Text key={entry.cat.id} style={styles.catChip}>
+                    {entry.cat.name}
+                  </Text>
+                ))}
+              </View>
+              {reservation.specialRequests && (
+                <Text style={styles.notes}>
+                  Not: {reservation.specialRequests}
+                </Text>
+              )}
             </View>
-            {reservation.specialRequests && (
-              <Text style={styles.notes}>Not: {reservation.specialRequests}</Text>
-            )}
-          </View>
-        ))}
+          );
+        })}
       </View>
     </Card>
   );
@@ -151,6 +163,9 @@ const statusStyles: Record<string, any> = {
   CONFIRMED: { backgroundColor: "rgba(69,191,145,0.15)", color: colors.success },
   PENDING: { backgroundColor: colors.tealSoft, color: colors.teal },
   CHECKED_IN: { backgroundColor: "rgba(255,182,115,0.2)", color: colors.accent },
-  CHECKED_OUT: { backgroundColor: "rgba(160,140,128,0.15)", color: colors.textSecondary },
+  CHECKED_OUT: {
+    backgroundColor: "rgba(160,140,128,0.15)",
+    color: colors.textSecondary,
+  },
   CANCELLED: { backgroundColor: "rgba(236,107,98,0.18)", color: colors.danger },
 };

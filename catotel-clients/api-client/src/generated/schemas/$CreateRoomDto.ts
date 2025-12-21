@@ -8,24 +8,13 @@ export const $CreateRoomDto = {
             type: 'string',
             isRequired: true,
         },
+        roomTypeId: {
+            type: 'string',
+            description: `Room type id to link pricing/capacity`,
+            isRequired: true,
+        },
         description: {
             type: 'string',
-        },
-        capacity: {
-            type: 'number',
-            isRequired: true,
-        },
-        nightlyRate: {
-            type: 'number',
-            description: `Nightly rate in USD`,
-            isRequired: true,
-        },
-        amenities: {
-            type: 'dictionary',
-            contains: {
-                properties: {
-                },
-            },
         },
         isActive: {
             type: 'boolean',

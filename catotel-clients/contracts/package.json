@@ -1,0 +1,46 @@
+{
+  "name": "@catotel/contracts",
+  "version": "0.1.0",
+  "description": "Shared Catotel application contracts used across clients and backend.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./enums": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./hotel": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "prepare": "pnpm build"
+  },
+  "keywords": [
+    "catotel",
+    "contracts",
+    "types"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "tsup": "^8.2.4",
+    "typescript": "^5.7.3"
+  }
+}

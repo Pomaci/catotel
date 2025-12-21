@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-catotel}
+      POSTGRES_USER: ${POSTGRES_USER:-catotel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-catotel}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: catotel-api/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      NODE_ENV: production
+      PORT: ${API_PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-catotel}:${POSTGRES_PASSWORD:-catotel}@postgres:5432/${POSTGRES_DB:-catotel}}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3100}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:-change-me-access}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-change-me-refresh}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
+      REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-7d}
+      JWT_ISSUER: ${JWT_ISSUER:-catotel-api}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-catotel-client}
+      MAX_SESSIONS_PER_USER: ${MAX_SESSIONS_PER_USER:-3}
+      RATE_LIMIT_TTL: ${RATE_LIMIT_TTL:-60}
+      RATE_LIMIT_LIMIT: ${RATE_LIMIT_LIMIT:-120}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-Catotel <noreply@catotel.dev>}
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:3100/auth/reset-password}
+      PASSWORD_RESET_TOKEN_TTL_MINUTES: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:-30}
+      PASSWORD_RESET_EMAIL_WINDOW_MINUTES: ${PASSWORD_RESET_EMAIL_WINDOW_MINUTES:-15}
+      PASSWORD_RESET_EMAIL_MAX_PER_WINDOW: ${PASSWORD_RESET_EMAIL_MAX_PER_WINDOW:-3}
+    ports:
+      - "3000:3000"
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: catotel-dashboard/Dockerfile
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: ${DASHBOARD_PORT:-3100}
+      API_BASE_URL: ${API_BASE_URL:-http://api:3000/api/v1}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+    ports:
+      - "3100:3100"
+
+volumes:
+  postgres-data:

@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsNumber,
   IsOptional,
+  IsBoolean,
   IsString,
   MaxLength,
   MinLength,
@@ -31,6 +32,11 @@ export class CreateCatDto {
   @IsOptional()
   @IsDateString()
   birthDate?: string;
+
+  @ApiPropertyOptional({ description: 'Whether the cat is neutered' })
+  @IsOptional()
+  @IsBoolean()
+  isNeutered?: boolean;
 
   @ApiPropertyOptional({ description: 'Weight in kg' })
   @IsOptional()

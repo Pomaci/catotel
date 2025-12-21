@@ -18,9 +18,17 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
+  const resolveDestination = (role?: string | null) => {
+    if (role === "ADMIN") return "/dashboard/admin";
+    if (role === "STAFF") return "/dashboard/staff";
+    if (role === "MANAGER") return "/dashboard/manager";
+    if (role === "CUSTOMER") return "/dashboard/guest";
+    return "/dashboard";
+  };
+
   useEffect(() => {
     if (!bootstrapping && isAuthenticated && user) {
-      router.replace(user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard");
+      router.replace(resolveDestination(user.role));
     }
   }, [bootstrapping, isAuthenticated, user, router]);
 
@@ -28,7 +36,7 @@ export function LoginForm() {
     e.preventDefault();
     const loggedInUser = await login(email, password);
     if (loggedInUser) {
-      router.replace(loggedInUser.role === "ADMIN" ? "/dashboard/admin" : "/dashboard");
+      router.replace(resolveDestination(loggedInUser.role));
     }
     if (remember) {
       localStorage.setItem("catotel-remember-email", email);

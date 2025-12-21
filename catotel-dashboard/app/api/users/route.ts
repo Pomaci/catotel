@@ -1,24 +1,42 @@
-"use server";
+ "use server";
 
 import { NextResponse } from "next/server";
-import { backendRequest } from "@/lib/server/backend-client";
-import { getAccessTokenFromCookies } from "@/lib/server/auth-cookies";
+import { jwtDecode } from "jwt-decode";
+import { backendRequestWithRefresh } from "@/lib/server/backend-auth-refresh";
 import { handleApiError } from "@/lib/server/api-error-response";
 import { requireCsrfToken } from "@/lib/server/csrf";
+import { getAccessTokenFromCookies } from "@/lib/server/auth-cookies";
+import type { UserRole } from "@/types/enums";
 
-export async function GET() {
+function authorize(requiredRoles: UserRole[]) {
   const token = getAccessTokenFromCookies();
   if (!token) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return { error: NextResponse.json({ message: "Unauthorized" }, { status: 401 }) };
   }
-
   try {
-    const users = await backendRequest(
+    const payload = jwtDecode<{ role?: UserRole }>(token);
+    if (payload.role && requiredRoles.includes(payload.role)) {
+      return { token };
+    }
+    return { error: NextResponse.json({ message: "Forbidden" }, { status: 403 }) };
+  } catch {
+    return { error: NextResponse.json({ message: "Unauthorized" }, { status: 401 }) };
+  }
+}
+
+const elevatedRoles: UserRole[] = ["ADMIN", "MANAGER"];
+
+export async function GET() {
+  const auth = authorize(elevatedRoles);
+  if (auth.error) {
+    return auth.error;
+  }
+  try {
+    const users = await backendRequestWithRefresh(
       {
         method: "GET",
         url: "/users",
       },
-      token
     );
     return NextResponse.json(users);
   } catch (error) {
@@ -27,27 +45,25 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = authorize(elevatedRoles);
+  if (auth.error) {
+    return auth.error;
+  }
   const csrfError = requireCsrfToken(request);
   if (csrfError) {
     return csrfError;
   }
 
-  const token = getAccessTokenFromCookies();
-  if (!token) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
   const body = await request.json();
 
   try {
-    const created = await backendRequest(
+    const created = await backendRequestWithRefresh(
       {
         method: "POST",
         url: "/users/management",
         body,
         mediaType: "application/json",
       },
-      token
     );
     return NextResponse.json(created, { status: 201 });
   } catch (error) {

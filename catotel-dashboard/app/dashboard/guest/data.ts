@@ -1,0 +1,293 @@
+import type {
+  AddonService,
+  Cat,
+  CustomerProfile,
+  Payment,
+  Reservation,
+  ReservationService,
+  RoomType,
+} from "@/types/hotel";
+
+export const sampleCats: Cat[] = [
+  {
+    id: "cat-1",
+    name: "Mia",
+    breed: "British Shorthair",
+    gender: "Dişi",
+    weightKg: 4.2,
+    dietaryNotes: "Tahılsız mama, akşam 20:00.",
+    medicalNotes: "Kulak hassasiyeti, veteriner notu mevcut.",
+    photoUrl: null,
+  },
+  {
+    id: "cat-2",
+    name: "Loki",
+    breed: "Van Kedisi",
+    gender: "Erkek",
+    weightKg: 5.1,
+    dietaryNotes: "Somonlu mama, günde 2 öğün.",
+    medicalNotes: null,
+    photoUrl: null,
+  },
+  {
+    id: "cat-3",
+    name: "Pofuduk",
+    breed: "Scottish Fold",
+    gender: "Dişi",
+    weightKg: 3.7,
+    dietaryNotes: "Ödül mamaları sınırlı.",
+    medicalNotes: "Özel tarama fırçası.",
+    photoUrl: null,
+  },
+];
+
+export const roomTypes: RoomType[] = [
+  {
+    id: "room-type-1",
+    name: "Lagoon Suite",
+    description: "Sessiz köşe, geniş pencere ve özel tırmalama alanı.",
+    capacity: 2,
+    nightlyRate: 1350,
+    availableUnits: 3,
+    totalUnits: 5,
+    availableSlots: 4,
+    available: true,
+    amenities: { highlights: ["Panoramik pencere", "Özel mama barı", "Geniş oyun alanı"] },
+    isActive: true,
+  },
+  {
+    id: "room-type-2",
+    name: "Peach Deluxe",
+    description: "Yumuşak yatak ve günlük oyun seansı içerir.",
+    capacity: 1,
+    nightlyRate: 980,
+    availableUnits: 2,
+    totalUnits: 4,
+    availableSlots: 2,
+    available: true,
+    amenities: { highlights: ["Özel tırmalama", "Kedi otu paketi", "Günlük fotoğraf"] },
+    isActive: true,
+  },
+  {
+    id: "room-type-3",
+    name: "Clay Family",
+    description: "Aynı aileden kediler için geniş ve paylaşılabilir oda.",
+    capacity: 3,
+    nightlyRate: 1650,
+    availableUnits: 1,
+    totalUnits: 2,
+    availableSlots: 1,
+    available: false,
+    amenities: { highlights: ["Aile boyu yatak", "Aromaterapi", "Özel oyun seti"] },
+    isActive: true,
+  },
+];
+
+export const addonCatalog: AddonService[] = [
+  {
+    id: "addon-1",
+    name: "Günlük tarama",
+    description: "Her gün 10 dakikalık tüy bakımı.",
+    price: 120,
+    isActive: true,
+  },
+  {
+    id: "addon-2",
+    name: "Özel mama servisi",
+    description: "Özel diyet planı ile besleme.",
+    price: 90,
+    isActive: true,
+  },
+  {
+    id: "addon-3",
+    name: "Veteriner kontrolü",
+    description: "Haftalık hızlı sağlık kontrolü.",
+    price: 250,
+    isActive: true,
+  },
+];
+
+export const sampleReservationServices: ReservationService[] = [
+  {
+    id: "service-1",
+    service: addonCatalog[0],
+    quantity: 2,
+    unitPrice: 120,
+  },
+  {
+    id: "service-2",
+    service: addonCatalog[1],
+    quantity: 1,
+    unitPrice: 90,
+  },
+];
+
+export const samplePayments: Payment[] = [
+  {
+    id: "pay-1",
+    amount: 1650,
+    method: "ONLINE",
+    status: "PAID",
+    transactionRef: "PAY-10231",
+    processedAt: "2025-02-05T09:15:00Z",
+    createdAt: "2025-02-05T09:10:00Z",
+  },
+  {
+    id: "pay-2",
+    amount: 420,
+    method: "CARD",
+    status: "PENDING",
+    transactionRef: "PAY-10232",
+    createdAt: "2025-02-05T09:20:00Z",
+  },
+];
+
+export const sampleReservations: Reservation[] = [
+  {
+    id: "res-1",
+    code: "MIW-4821",
+    status: "CONFIRMED",
+    checkIn: "2025-02-14",
+    checkOut: "2025-02-18",
+    totalPrice: 5200,
+    allowRoomSharing: false,
+    roomType: roomTypes[0],
+    cats: [{ cat: sampleCats[0] }, { cat: sampleCats[1] }],
+    services: sampleReservationServices,
+    payments: samplePayments,
+  },
+  {
+    id: "res-2",
+    code: "MIW-4890",
+    status: "PENDING",
+    checkIn: "2025-03-02",
+    checkOut: "2025-03-05",
+    totalPrice: 3100,
+    allowRoomSharing: true,
+    roomType: roomTypes[1],
+    cats: [{ cat: sampleCats[2] }],
+    services: [],
+    payments: [
+      {
+        id: "pay-3",
+        amount: 1550,
+        method: "ONLINE",
+        status: "PENDING",
+        createdAt: "2025-02-22T08:20:00Z",
+      },
+    ],
+  },
+  {
+    id: "res-3",
+    code: "MIW-4702",
+    status: "CHECKED_OUT",
+    checkIn: "2024-12-01",
+    checkOut: "2024-12-04",
+    totalPrice: 2800,
+    allowRoomSharing: false,
+    roomType: roomTypes[1],
+    cats: [{ cat: sampleCats[0] }],
+    services: [],
+    payments: [
+      {
+        id: "pay-4",
+        amount: 2800,
+        method: "CARD",
+        status: "PAID",
+        processedAt: "2024-12-01T10:00:00Z",
+        createdAt: "2024-11-28T12:00:00Z",
+      },
+    ],
+  },
+  {
+    id: "res-4",
+    code: "MIW-4680",
+    status: "CANCELLED",
+    checkIn: "2024-11-10",
+    checkOut: "2024-11-12",
+    totalPrice: 1900,
+    allowRoomSharing: true,
+    roomType: roomTypes[2],
+    cats: [{ cat: sampleCats[1] }],
+    services: [],
+    payments: [
+      {
+        id: "pay-5",
+        amount: 950,
+        method: "CARD",
+        status: "REFUNDED",
+        processedAt: "2024-11-05T09:00:00Z",
+        createdAt: "2024-11-04T10:15:00Z",
+      },
+    ],
+  },
+];
+
+export const reservationDetail: Reservation = {
+  id: "res-detail",
+  code: "MIW-5120",
+  status: "CHECKED_IN",
+  checkIn: "2025-01-10",
+  checkOut: "2025-01-14",
+  totalPrice: 4600,
+  allowRoomSharing: false,
+  roomType: roomTypes[0],
+  cats: [{ cat: sampleCats[0] }, { cat: sampleCats[2] }],
+  services: sampleReservationServices,
+  payments: samplePayments,
+  roomAssignments: [
+    {
+      id: "assign-1",
+      room: { id: "room-12", name: "Lagoon 204", roomTypeId: roomTypes[0].id },
+      checkIn: "2025-01-10",
+      checkOut: "2025-01-14",
+      catCount: 2,
+      allowRoomSharing: false,
+      lockedAt: "2025-01-10T12:00:00Z",
+      cats: [{ cat: sampleCats[0] }, { cat: sampleCats[2] }],
+    },
+  ],
+  checkInForm: {
+    arrivalTime: "14:30",
+    deliveredItems: [
+      { label: "Kendi battaniyesi", quantity: 1 },
+      { label: "Özel mama", quantity: 2 },
+    ],
+    foodPlan: {
+      brand: "Grain Free",
+      amountPerMeal: "60gr",
+      frequencyPerDay: 2,
+      instructions: "Akşam öğününde vitamin ekleniyor.",
+    },
+    medicationPlan: [
+      {
+        name: "Omega 3",
+        dosage: "1 kapsül",
+        schedule: "Akşam",
+        withFood: true,
+        notes: "Mama ile birlikte.",
+      },
+    ],
+    catCondition: "Enerjik ve iştahlı.",
+    additionalNotes: "Odaya gün ışığı alan bölüm tercih edildi.",
+  },
+  specialRequests: "Pencere kenarı ve ekstra tırmalama tahtası.",
+};
+
+export const sampleProfile: CustomerProfile = {
+  id: "profile-1",
+  phone: "+90 555 123 45 67",
+  preferredVet: "Vet Clinic / Dr. Seda Yılmaz",
+  address: "Kadıköy, İstanbul",
+  emergencyContactName: "Bora Yılmaz",
+  emergencyContactPhone: "+90 533 111 22 33",
+  notes: "Hafta içi aramalar tercihen 10:00-18:00 arası.",
+  user: {
+    id: "user-1",
+    email: "misafir@miaow.app",
+    name: "Ayşe Yılmaz",
+    role: "CUSTOMER",
+  },
+  cats: sampleCats,
+  reservations: sampleReservations,
+};

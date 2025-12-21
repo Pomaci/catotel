@@ -7,22 +7,12 @@ export const $UpdateRoomDto = {
         name: {
             type: 'string',
         },
+        roomTypeId: {
+            type: 'string',
+            description: `Room type id to link pricing/capacity`,
+        },
         description: {
             type: 'string',
-        },
-        capacity: {
-            type: 'number',
-        },
-        nightlyRate: {
-            type: 'number',
-            description: `Nightly rate in USD`,
-        },
-        amenities: {
-            type: 'dictionary',
-            contains: {
-                properties: {
-                },
-            },
         },
         isActive: {
             type: 'boolean',

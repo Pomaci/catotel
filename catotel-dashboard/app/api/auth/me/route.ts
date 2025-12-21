@@ -7,6 +7,9 @@ import {
 } from '@/lib/server/auth-cookies';
 import { handleApiError } from '@/lib/server/api-error-response';
 import { ApiError } from '@catotel/api-client';
+import { ensureCsrfToken } from '@/lib/server/csrf';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const accessToken = getAccessTokenFromCookies();
@@ -44,6 +47,7 @@ async function refreshUsingCookie() {
   try {
     const tokens = await backendRefresh({ refresh_token: refreshToken });
     setAuthCookies(tokens);
+    ensureCsrfToken();
     return tokens.access_token;
   } catch (err) {
     return null;

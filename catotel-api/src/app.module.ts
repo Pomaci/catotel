@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -6,7 +6,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
-import { PrismaService } from './prisma/prisma.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
@@ -15,11 +14,15 @@ import { EnvVars } from './config/config.schema';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './auth/jwt/jwt.guard';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { CustomersModule } from './customers/customers.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { StaffModule } from './staff/staff.module';
 import { MailModule } from './mail/mail.module';
+import { PricingSettingsModule } from './pricing-settings/pricing-settings.module';
+import { RoomTypesModule } from './room-types/room-types.module';
+import { AddonServicesModule } from './addon-services/addon-services.module';
 
 @Module({
   imports: [
@@ -57,15 +60,17 @@ import { MailModule } from './mail/mail.module';
     UserModule,
     PrismaModule,
     CustomersModule,
+    RoomTypesModule,
     RoomsModule,
     ReservationsModule,
     StaffModule,
     MailModule,
+    PricingSettingsModule,
+    AddonServicesModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    PrismaService,
     {
       provide: APP_GUARD,
       useClass: RateLimitGuard,
@@ -80,4 +85,8 @@ import { MailModule } from './mail/mail.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

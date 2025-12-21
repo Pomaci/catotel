@@ -4,6 +4,8 @@ import { handleApiError } from "@/lib/server/api-error-response";
 import { setAuthCookies } from "@/lib/server/auth-cookies";
 import { ensureCsrfToken, requireCsrfToken } from "@/lib/server/csrf";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     email?: string;
@@ -27,7 +29,6 @@ export async function POST(request: NextRequest) {
       email: body.email,
       password: body.password,
     });
-    console.log(response);
     setAuthCookies(response);
     ensureCsrfToken();
     return NextResponse.json({ user: response.user });

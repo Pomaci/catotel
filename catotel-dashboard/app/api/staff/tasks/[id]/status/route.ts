@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/server/backend-client';
-import { getAccessTokenFromCookies } from '@/lib/server/auth-cookies';
+import { backendRequestWithRefresh } from '@/lib/server/backend-auth-refresh';
 import { handleApiError } from '@/lib/server/api-error-response';
 import { requireCsrfToken } from '@/lib/server/csrf';
 
@@ -12,22 +11,16 @@ export async function PATCH(request: Request, { params }: Params) {
     return csrfError;
   }
 
-  const token = getAccessTokenFromCookies();
-  if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   const body = await request.json();
 
   try {
-    const task = await backendRequest(
+    const task = await backendRequestWithRefresh(
       {
         method: 'PATCH',
         url: `/staff/tasks/${params.id}/status`,
         body,
         mediaType: 'application/json',
       },
-      token,
     );
     return NextResponse.json(task);
   } catch (error) {

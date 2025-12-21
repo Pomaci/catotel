@@ -1,0 +1,7 @@
+packages:
+  - catotel-api
+  - catotel-dashboard
+  - catotel-mobile
+  - catotel-clients/api-client
+  - catotel-clients/contracts
+  - catotel-clients/i18n

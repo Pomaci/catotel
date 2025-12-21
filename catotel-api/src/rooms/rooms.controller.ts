@@ -23,9 +23,8 @@ export class RoomsController {
   @Get()
   @Public()
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
-  async list(@Query('includeInactive') includeInactive?: string) {
-    const activeOnly = includeInactive !== 'true';
-    return this.rooms.list(activeOnly);
+  list(@Query('includeInactive') includeInactive?: string) {
+    return this.rooms.list(includeInactive === 'true');
   }
 
   @ApiBearerAuth('access-token')

@@ -1,5 +1,6 @@
 # Node / JS
 node_modules/
+**/node_modules.old/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -20,6 +21,11 @@ playwright-report/
 expo-env.d.ts
 .metro-health-check*
 
+# Package-specific generated output
+catotel-api/dist/
+catotel-dashboard/.next/
+
+
 # Native / Expo
 ios/
 android/
@@ -38,7 +44,14 @@ Thumbs.db
 
 # Local data and caches
 logs/
+**/logs/
 *.log
 *.pid
 *.pid.lock
 catotel-infra-check/redisdata/
+scratch/
+**/scratch/
+scratch.*
+*.scratch.*
+*.tmp
+*.tmp.*

@@ -5,6 +5,9 @@ import { SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from '../app.module';
 import { swaggerConfig } from '../config/swagger.config';
+import { StructuredLogger } from '../common/logger/structured-logger';
+
+const toolLogger = new StructuredLogger('OpenAPI');
 
 async function generateOpenApi() {
   const app = await NestFactory.create(AppModule);
@@ -16,13 +19,17 @@ async function generateOpenApi() {
     await mkdir(outputDir, { recursive: true });
     const outputPath = join(outputDir, 'catotel-api.json');
     await writeFile(outputPath, JSON.stringify(document, null, 2), 'utf-8');
-    console.log(`OpenAPI schema written to ${outputPath}`);
+    toolLogger.log('OpenAPI schema written', { outputPath });
   } finally {
     await app.close();
   }
 }
 
 generateOpenApi().catch((err) => {
-  console.error('Failed to generate OpenAPI schema', err);
+  toolLogger.error(
+    'Failed to generate OpenAPI schema',
+    { error: err instanceof Error ? err.message : String(err) },
+    err instanceof Error ? err.stack : undefined,
+  );
   process.exit(1);
 });

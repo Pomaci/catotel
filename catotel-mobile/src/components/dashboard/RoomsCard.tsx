@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+﻿import { StyleSheet, Text, View } from "react-native";
 import type { Room } from "@/types/hotel";
 import { Card } from "@/components/ui/Card";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -25,44 +25,60 @@ export function RoomsCard({ rooms, loading, onRefresh }: Props) {
         }
       />
 
-      {loading && <Text style={styles.info}>Odalar yükleniyor...</Text>}
+      {loading && <Text style={styles.info}>Odalar yukleniyor...</Text>}
       {!loading && rooms.length === 0 && (
         <Text style={styles.info}>
-          Aktif oda bilgisi bulunamadı. Yönetici panelinden oluşturabilirsin.
+          Aktif oda bilgisi bulunamadi. Yonetici panelinden olusturabilirsin.
         </Text>
       )}
 
       <View style={styles.list}>
-        {visibleRooms.map((room) => (
-          <View key={room.id} style={styles.roomCard}>
-            <View style={styles.row}>
-              <Text style={styles.roomName}>{room.name}</Text>
-              <Text
-                style={[
-                  styles.status,
-                  room.isActive ? styles.active : styles.inactive,
-                ]}
-              >
-                {room.isActive ? "Aktif" : "Pasif"}
-              </Text>
-            </View>
-            <Text style={styles.meta}>
-              Kapasite {room.capacity} kedi · {formatCurrency(room.nightlyRate)} / gece
-            </Text>
-            <Text style={styles.description}>
-              {room.description || "Açıklama eklenmemiş."}
-            </Text>
-            {room.amenities && (
-              <View style={styles.amenities}>
-                {Object.keys(room.amenities).map((key) => (
-                  <Text key={key} style={styles.amenity}>
-                    {key}
-                  </Text>
-                ))}
+        {visibleRooms.map((room) => {
+          const roomType = room.roomType;
+          const capacity =
+            typeof roomType?.capacity === "number"
+              ? roomType.capacity
+              : Number(roomType?.capacity) || 0;
+          const nightlyRate =
+            typeof roomType?.nightlyRate === "number"
+              ? roomType.nightlyRate
+              : Number(roomType?.nightlyRate) || 0;
+          const amenities =
+            roomType?.amenities && Object.keys(roomType.amenities).length > 0
+              ? roomType.amenities
+              : null;
+          const description =
+            room.description || roomType?.description || "Aciklama eklenmedi.";
+
+          return (
+            <View key={room.id} style={styles.roomCard}>
+              <View style={styles.row}>
+                <Text style={styles.roomName}>{room.name}</Text>
+                <Text
+                  style={[
+                    styles.status,
+                    room.isActive ? styles.active : styles.inactive,
+                  ]}
+                >
+                  {room.isActive ? "Aktif" : "Pasif"}
+                </Text>
               </View>
-            )}
-          </View>
-        ))}
+              <Text style={styles.meta}>
+                Kapasite {capacity} kedi - {formatCurrency(nightlyRate)} / gece
+              </Text>
+              <Text style={styles.description}>{description}</Text>
+              {amenities && (
+                <View style={styles.amenities}>
+                  {Object.keys(amenities).map((key) => (
+                    <Text key={key} style={styles.amenity}>
+                      {key}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })}
         {rooms.length > visibleRooms.length && (
           <Text style={styles.more}>
             {rooms.length - visibleRooms.length} oda daha var...

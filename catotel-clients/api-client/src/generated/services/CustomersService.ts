@@ -82,4 +82,42 @@ export class CustomersService {
             mediaType: 'application/json',
         });
     }
+    /**
+     * @returns any
+     * @throws ApiError
+     */
+    public static customersControllerListCatsForCustomer({
+        id,
+    }: {
+        id: string,
+    }): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/customers/{id}/cats',
+            path: {
+                'id': id,
+            },
+        });
+    }
+    /**
+     * @returns any
+     * @throws ApiError
+     */
+    public static customersControllerCreateCatForCustomer({
+        id,
+        requestBody,
+    }: {
+        id: string,
+        requestBody: CreateCatDto,
+    }): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/customers/{id}/cats',
+            path: {
+                'id': id,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
 }

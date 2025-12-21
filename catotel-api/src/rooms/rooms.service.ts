@@ -1,42 +1,76 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class RoomsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(activeOnly = true) {
+  list(includeInactive = false) {
     return this.prisma.room.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
+      where: includeInactive ? undefined : { isActive: true },
       orderBy: { name: 'asc' },
+      include: { roomType: true },
     });
   }
 
-  create(dto: CreateRoomDto) {
+  async create(dto: CreateRoomDto) {
+    const roomType = await this.prisma.roomType.findUnique({
+      where: { id: dto.roomTypeId },
+    });
+    if (!roomType || !roomType.isActive) {
+      throw new BadRequestException(
+        localizedError(ERROR_CODES.ROOM_TYPE_NOT_ACTIVE),
+      );
+    }
     return this.prisma.room.create({
       data: {
         name: dto.name,
         description: dto.description,
-        capacity: dto.capacity,
-        nightlyRate: dto.nightlyRate,
-        amenities: dto.amenities,
+        roomTypeId: dto.roomTypeId,
         isActive: dto.isActive ?? true,
       },
+      include: { roomType: true },
     });
   }
 
   async update(id: string, dto: UpdateRoomDto) {
     const existing = await this.prisma.room.findUnique({ where: { id } });
     if (!existing) {
-      throw new NotFoundException('Room not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.ROOM_NOT_FOUND),
+      );
     }
+
+    if (dto.roomTypeId) {
+      const targetType = await this.prisma.roomType.findUnique({
+        where: { id: dto.roomTypeId },
+      });
+      if (!targetType || !targetType.isActive) {
+        throw new BadRequestException(
+          localizedError(ERROR_CODES.ROOM_TYPE_NOT_ACTIVE),
+        );
+      }
+    }
+
     return this.prisma.room.update({
       where: { id },
       data: {
-        ...dto,
+        name: dto.name,
+        description: dto.description,
+        roomTypeId: dto.roomTypeId,
+        ...(dto.isActive === undefined ? {} : { isActive: dto.isActive }),
       },
+      include: { roomType: true },
     });
   }
 }

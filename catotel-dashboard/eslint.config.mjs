@@ -1,12 +1,6 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-import shared from "./eslint.shared.cjs";
+import { createNextConfig } from '../tooling/eslint/next.mjs';
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  globalIgnores(shared.ignorePatterns),
-]);
-
-export default eslintConfig;
+export default createNextConfig({
+  tsconfigRootDir: import.meta.dirname,
+  ignores: ['.next', 'out', 'dist', 'node_modules', 'playwright-report'],
+});

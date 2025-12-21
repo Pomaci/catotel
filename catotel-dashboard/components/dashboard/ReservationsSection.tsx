@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { Cat, Reservation, Room } from "@/types/hotel";
+import type { Cat, Reservation, RoomType } from "@/types/hotel";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Badge } from "@/components/ui/Badge";
@@ -15,7 +15,7 @@ import {
 } from "@/types/enums";
 
 const reservationSchema = z.object({
-  roomId: z.string().min(1),
+  roomTypeId: z.string().min(1),
   checkIn: z.string().min(1),
   checkOut: z.string().min(1),
   catIds: z.array(z.string()).min(1),
@@ -26,12 +26,12 @@ type ReservationFormValues = z.infer<typeof reservationSchema>;
 
 export function ReservationsSection({
   cats,
-  rooms,
+  roomTypes,
   reservations,
   onCreate,
 }: {
   cats: Cat[] | undefined;
-  rooms: Room[] | undefined;
+  roomTypes: RoomType[] | undefined;
   reservations: Reservation[] | undefined;
   onCreate(values: ReservationFormValues): Promise<void>;
 }) {
@@ -47,7 +47,7 @@ export function ReservationsSection({
   } = useForm<ReservationFormValues>({
     resolver: zodResolver(reservationSchema),
     defaultValues: {
-      roomId: "",
+      roomTypeId: "",
       checkIn: "",
       checkOut: "",
       catIds: [],
@@ -114,16 +114,16 @@ export function ReservationsSection({
             })}
           >
             <label className="text-xs uppercase tracking-[0.3em] text-slate-400">
-              Oda
+              Oda tipi
             </label>
             <select
               className="w-full rounded-2xl border border-sand-200 bg-white/80 px-4 py-3 text-sm text-cocoa-700 outline-none focus:border-lagoon-400"
-              {...register("roomId")}
+              {...register("roomTypeId")}
             >
-              <option value="">Oda seçin</option>
-              {rooms?.map((room) => (
-                <option value={room.id} key={room.id}>
-                  {room.name} · {formatCurrency(room.nightlyRate)}/gece
+              <option value="">Oda tipi seçin</option>
+              {roomTypes?.map((roomType) => (
+                <option value={roomType.id} key={roomType.id}>
+                  {roomType.name} · {formatCurrency(roomType.nightlyRate)}/gece
                 </option>
               ))}
             </select>
@@ -175,7 +175,7 @@ function ReservationCard({ reservation }: { reservation: Reservation }) {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-semibold text-cocoa-700">
-            {reservation.room.name}
+            {reservation.roomType.name}
           </p>
           <p className="text-xs text-slate-500">
             {formatDate(reservation.checkIn, { dateStyle: "medium" })} ·{" "}
@@ -200,4 +200,6 @@ function ReservationCard({ reservation }: { reservation: Reservation }) {
     </div>
   );
 }
+
+
 

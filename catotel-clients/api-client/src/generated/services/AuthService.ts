@@ -4,8 +4,10 @@
 /* eslint-disable */
 import type { AuthResponseDto } from '../models/AuthResponseDto';
 import type { AuthTokensDto } from '../models/AuthTokensDto';
+import type { ForgotPasswordDto } from '../models/ForgotPasswordDto';
 import type { LoginDto } from '../models/LoginDto';
 import type { RefreshTokenDto } from '../models/RefreshTokenDto';
+import type { ResetPasswordDto } from '../models/ResetPasswordDto';
 import type { SessionResponseDto } from '../models/SessionResponseDto';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
@@ -100,6 +102,40 @@ export class AuthService {
             path: {
                 'id': id,
             },
+        });
+    }
+    /**
+     * Request a password reset link
+     * @returns any
+     * @throws ApiError
+     */
+    public static authControllerForgotPassword({
+        requestBody,
+    }: {
+        requestBody: ForgotPasswordDto,
+    }): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/auth/forgot-password',
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
+    /**
+     * Reset password via token
+     * @returns any
+     * @throws ApiError
+     */
+    public static authControllerResetPassword({
+        requestBody,
+    }: {
+        requestBody: ResetPasswordDto,
+    }): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/auth/reset-password',
+            body: requestBody,
+            mediaType: 'application/json',
         });
     }
 }

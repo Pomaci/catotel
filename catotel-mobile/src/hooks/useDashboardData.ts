@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { HotelApi } from "@/lib/hotel";
 import type {
@@ -8,91 +8,113 @@ import type {
   Reservation,
   Room,
 } from "@/types/hotel";
+import {
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
-type DashboardState = {
-  profile?: CustomerProfile;
-  cats: Cat[];
-  rooms: Room[];
-  reservations: Reservation[];
-  tasks: CareTask[];
-};
-
-const emptyState: DashboardState = {
-  profile: undefined,
-  cats: [],
-  rooms: [],
-  reservations: [],
-  tasks: [],
-};
-
-const toMessage = (error: unknown) => {
-  if (error instanceof Error) {
-    return error.message || "Beklenmedik bir hata oluştu.";
-  }
-  return "Beklenmedik bir hata oluştu.";
+const queryKeys = {
+  profile: ["dashboard", "profile"] as const,
+  cats: ["dashboard", "cats"] as const,
+  rooms: (includeInactive: boolean) =>
+    ["dashboard", "rooms", { includeInactive }] as const,
+  reservations: ["dashboard", "reservations"] as const,
+  tasks: ["dashboard", "tasks"] as const,
 };
 
 export function useDashboardData() {
   const { accessToken, user } = useAuth();
-  const [state, setState] = useState<DashboardState>(emptyState);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  const queryClient = useQueryClient();
   const canManageTasks = useMemo(
     () => (user?.role ?? "CUSTOMER") !== "CUSTOMER",
     [user?.role],
   );
+  const enabled = Boolean(accessToken);
 
-  const fetchData = useCallback(async () => {
-    if (!accessToken) {
-      setState(emptyState);
-      return;
+  const profileQuery = useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: HotelApi.getProfile,
+    enabled,
+  });
+
+  const catsQuery = useQuery({
+    queryKey: queryKeys.cats,
+    queryFn: HotelApi.listCats,
+    enabled,
+  });
+
+  const roomsQuery = useQuery({
+    queryKey: queryKeys.rooms(false),
+    queryFn: () => HotelApi.listRooms(false),
+    enabled,
+  });
+
+  const reservationsQuery = useQuery({
+    queryKey: queryKeys.reservations,
+    queryFn: HotelApi.listReservations,
+    enabled,
+  });
+
+  const tasksQuery = useQuery({
+    queryKey: queryKeys.tasks,
+    queryFn: HotelApi.listStaffTasks,
+    enabled: enabled && canManageTasks,
+    staleTime: 30 * 1000,
+  });
+
+  const loading =
+    enabled &&
+    (profileQuery.isPending ||
+      catsQuery.isPending ||
+      roomsQuery.isPending ||
+      reservationsQuery.isPending ||
+      (canManageTasks && tasksQuery.isPending));
+
+  const errorSource =
+    profileQuery.error ||
+    catsQuery.error ||
+    roomsQuery.error ||
+    reservationsQuery.error ||
+    tasksQuery.error;
+
+  const errorMessage =
+    errorSource instanceof Error
+      ? errorSource.message
+      : errorSource
+        ? String(errorSource)
+        : null;
+
+  const refetch = useCallback(async () => {
+    if (!enabled) return;
+    const invalidations: Array<Promise<unknown>> = [
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.cats }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.rooms(false) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations }),
+    ];
+    if (canManageTasks) {
+      invalidations.push(
+        queryClient.invalidateQueries({ queryKey: queryKeys.tasks }),
+      );
     }
-    setLoading(true);
-    setError(null);
-    try {
-      const tasksPromise = canManageTasks
-        ? HotelApi.listStaffTasks().catch((err: unknown) => {
-            if (err instanceof Error) {
-              if (err.message.includes("401") || err.message.includes("403")) {
-                return [];
-              }
-            }
-            throw err;
-          })
-        : Promise.resolve([]);
+    await Promise.all(invalidations);
+  }, [canManageTasks, enabled, queryClient]);
 
-      const [profile, cats, rooms, reservations, tasks] = await Promise.all([
-        HotelApi.getProfile(),
-        HotelApi.listCats(),
-        HotelApi.listRooms(false),
-        HotelApi.listReservations(),
-        tasksPromise,
-      ]);
-
-      setState({
-        profile,
-        cats,
-        rooms,
-        reservations,
-        tasks,
-      });
-    } catch (err) {
-      setError(toMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [accessToken, canManageTasks]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const profile = profileQuery.data as CustomerProfile | undefined;
+  const cats = (catsQuery.data ?? []) as Cat[];
+  const rooms = (roomsQuery.data ?? []) as Room[];
+  const reservations = (reservationsQuery.data ?? []) as Reservation[];
+  const tasks = (tasksQuery.data ?? []) as CareTask[];
 
   return {
-    ...state,
+    profile,
+    cats,
+    rooms,
+    reservations,
+    tasks,
     loading,
-    error,
-    refetch: fetchData,
+    error: errorMessage,
+    refetch,
     canManageTasks,
   };
 }

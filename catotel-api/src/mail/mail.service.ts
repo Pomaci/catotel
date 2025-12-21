@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvVars } from 'src/config/config.schema';
 import {
@@ -6,20 +6,24 @@ import {
   type Transporter,
   type SendMailOptions,
 } from 'nodemailer';
+import { StructuredLogger } from 'src/common/logger/structured-logger';
 
 type MailPayload = Omit<SendMailOptions, 'from'>;
 
 @Injectable()
 export class MailService implements OnModuleInit {
-  private readonly logger = new Logger(MailService.name);
+  private readonly logger = new StructuredLogger(MailService.name);
   private transporter: Transporter | null = null;
   private readonly fromAddress: string | null;
-  private readonly isEnabled: boolean;
+  private mailEnabled: boolean;
+  private mailReady = false;
 
   constructor(private readonly config: ConfigService<EnvVars>) {
-    this.isEnabled = Boolean(this.config.get('MAIL_ENABLED', { infer: true }));
+    this.mailEnabled = Boolean(
+      this.config.get('MAIL_ENABLED', { infer: true }),
+    );
 
-    if (!this.isEnabled) {
+    if (!this.mailEnabled) {
       this.logger.warn(
         'Mail service disabled. Set MAIL_ENABLED=true and configure SMTP settings to enable emails.',
       );
@@ -27,28 +31,45 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    this.fromAddress = this.getEnvOrThrow('MAIL_FROM');
+    const fromAddress = this.getRequiredMailSetting('MAIL_FROM');
+    if (!fromAddress) {
+      this.logger.error(
+        'MAIL_FROM is not configured; mail service will be disabled.',
+      );
+      this.mailEnabled = false;
+      this.fromAddress = null;
+      return;
+    }
+
+    this.fromAddress = fromAddress;
   }
 
   async onModuleInit() {
-    if (!this.isEnabled) {
+    if (!this.mailEnabled) {
       return;
     }
 
     try {
       await this.initializeTransporter();
+      this.mailReady = true;
       this.logger.log('SMTP transporter verified successfully.');
     } catch (error) {
       this.logger.error(
         'Failed to initialize SMTP transporter. Emails will not be delivered.',
-        error instanceof Error ? error.stack : String(error),
+        { error: error instanceof Error ? error.message : String(error) },
+        error instanceof Error ? error.stack : undefined,
       );
-      throw error;
+      this.mailReady = false;
+      this.mailEnabled = false;
+      this.transporter = null;
+      this.logger.warn(
+        'Mail service disabled due to SMTP verification failure.',
+      );
     }
   }
 
   get enabled() {
-    return this.isEnabled;
+    return this.mailEnabled && this.mailReady;
   }
 
   private getEnv<Key extends keyof EnvVars>(
@@ -57,42 +78,50 @@ export class MailService implements OnModuleInit {
     return this.config.get(key, { infer: true });
   }
 
-  private getEnvOrThrow<Key extends keyof EnvVars>(
+  private getRequiredMailSetting<Key extends keyof EnvVars>(
     key: Key,
-  ): NonNullable<EnvVars[Key]> {
+  ): NonNullable<EnvVars[Key]> | null {
     const value = this.getEnv(key);
-    if (value === undefined || value === null) {
-      throw new Error(
-        `Missing required environment variable for mail service: ${String(key)}`,
-      );
+    if (value === undefined || value === null || value === '') {
+      this.logger.error('Missing required mail configuration value', {
+        setting: String(key),
+      });
+      return null;
     }
     return value as NonNullable<EnvVars[Key]>;
   }
 
   private async initializeTransporter() {
-    const host = this.getEnvOrThrow('SMTP_HOST');
-    const port = this.getEnvOrThrow('SMTP_PORT');
+    const host = this.getRequiredMailSetting('SMTP_HOST');
+    const port = this.getRequiredMailSetting('SMTP_PORT');
     const secure = Boolean(this.getEnv('SMTP_SECURE'));
-    const user = this.getEnv('SMTP_USERNAME');
-    const pass = this.getEnv('SMTP_PASSWORD');
+    const user = this.getRequiredMailSetting('SMTP_USERNAME');
+    const pass = this.getRequiredMailSetting('SMTP_PASSWORD');
+
+    if (host === null || port === null || user === null || pass === null) {
+      throw new Error('SMTP configuration is incomplete.');
+    }
 
     this.transporter = createTransport({
       host,
       port,
       secure,
-      auth: user && pass ? { user, pass } : undefined,
+      auth: { user, pass },
     });
 
     await this.transporter.verify();
   }
 
   async sendMail(options: MailPayload) {
-    if (!this.isEnabled || !this.fromAddress) {
+    if (!this.mailEnabled || !this.mailReady || !this.fromAddress) {
       this.logger.debug('Mail disabled. Skipping sendMail call.');
       return;
     }
     if (!this.transporter) {
-      throw new Error('Mail transporter is not initialized yet.');
+      this.logger.warn(
+        'Mail transporter is not initialized; skipping email send.',
+      );
+      return;
     }
 
     try {
@@ -101,29 +130,34 @@ export class MailService implements OnModuleInit {
         ...options,
       });
       const recipients = this.formatRecipients(options.to);
-      this.logger.debug(`Mail sent to ${recipients}`);
+      this.logger.debug('Mail sent', { recipients });
     } catch (error) {
       this.logger.error(
         'Failed to send mail',
-        error instanceof Error ? error.stack : '',
+        {
+          recipients: this.formatRecipients(options.to),
+          error: error instanceof Error ? error.message : String(error),
+        },
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
   }
 
   async sendWelcomeEmail(to: string, name?: string) {
-    if (!this.isEnabled) {
+    if (!this.enabled) {
       return;
     }
-    const subject = 'Miaow Hotel ekibinden merhaba';
+    const subject = 'Catotel ekibinden merhaba';
     const salutation = name ? `Merhaba ${name},` : 'Merhaba,';
     const html = `
       <html>
         <head><meta charset="UTF-8" /></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
           <p>${salutation}</p>
-          <p>Miaow Hotel ailesine katıldığın için teşekkür ederiz. Kedinin konaklamasını yönetmek, canlı yayın ile onu izlemek ve bakım planlarını oluşturmak için hesabını kullanabilirsin.</p>
-          <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
+          <p>Catotel hesabiniz hazir. Giris yapip profili tamamlayabilir ve rezervasyonlarini yonetebilirsin.</p>
+          <p>Bir sorunda bu e-postaya yanit verebilirsin.</p>
+          <p>Sevgiler,<br/>Catotel Ekibi</p>
         </body>
       </html>
     `;
@@ -132,22 +166,22 @@ export class MailService implements OnModuleInit {
   }
 
   async sendPasswordResetEmail(to: string, link: string, name?: string) {
-    if (!this.isEnabled) {
+    if (!this.enabled) {
       return;
     }
     const salutation = name ? `Merhaba ${name},` : 'Merhaba,';
-    const subject = 'Catotel şifre yenileme bağlantısı';
+    const subject = 'Catotel sifre yenileme baglantisi';
     const html = `
       <html>
         <head><meta charset="UTF-8" /></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
           <p>${salutation}</p>
-          <p>Hesabın için yeni bir şifre belirlemek üzere aşağıdaki bağlantıyı kullanabilirsin. Bağlantı kısa süre sonra geçersiz olacaktır.</p>
+          <p>Hesabin icin yeni bir sifre belirlemek uzere asagidaki baglantiyi kullanabilirsin. Baglanti kisa sure sonra gecersiz olacaktir.</p>
           <p style="margin: 24px 0;">
-            <a href="${link}" style="background-color:#ffb673;color:#1f2933;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Yeni şifre belirle</a>
+            <a href="${link}" style="background-color:#ffb673;color:#1f2933;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Yeni sifre belirle</a>
           </p>
-          <p>Eğer bu isteği sen gerçekleştirmediysen bu e-postayı yok sayabilirsin.</p>
-          <p>Sevgiler,<br/>Miaow Hotel Ekibi</p>
+          <p>Eger bu istegi sen gerceklestirmediysen bu e-postayi yok sayabilirsin.</p>
+          <p>Sevgiler,<br/>Catotel Ekibi</p>
         </body>
       </html>
     `;

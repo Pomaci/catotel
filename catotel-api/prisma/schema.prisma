@@ -75,12 +75,15 @@ model User {
 
 model Session {
   id           String   @id @default(uuid())
+  jti          String   @unique @default(uuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id])
   refreshToken String
   userAgent    String?
   ip           String?
   isRevoked    Boolean  @default(false)
+  revokedAt    DateTime?
+  revokedReason String?
   lastUsedAt   DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -125,6 +128,7 @@ model Cat {
   name          String
   breed         String?
   gender        CatGender         @default(UNKNOWN)
+  isNeutered    Boolean           @default(false)
   birthDate     DateTime?
   weightKg      Decimal?          @db.Decimal(4, 1)
   dietaryNotes  String?
@@ -132,23 +136,40 @@ model Cat {
   photoUrl      String?
   reservations  ReservationCat[]
   tasks         CareTask[]        @relation("TaskCat")
+  roomAssignments RoomAssignmentCat[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
   @@index([customerId])
 }
 
-model Room {
+model RoomType {
   id          String     @id @default(cuid())
   name        String     @unique
   description String?
   capacity    Int        @default(1)
   nightlyRate Decimal    @db.Decimal(7, 2)
   amenities   Json?
+  overbookingLimit Int   @default(0)
   isActive    Boolean    @default(true)
+  rooms       Room[]
   reservations Reservation[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+model Room {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  roomTypeId  String
+  roomType    RoomType   @relation(fields: [roomTypeId], references: [id])
+  description String?
+  isActive    Boolean    @default(true)
+  assignments RoomAssignment[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([roomTypeId])
 }
 
 model AddonService {
@@ -167,22 +188,29 @@ model Reservation {
   code            String              @unique
   customerId      String
   customer        CustomerProfile     @relation(fields: [customerId], references: [id])
-  roomId          String
-  room            Room                @relation(fields: [roomId], references: [id])
+  roomTypeId      String
+  roomType        RoomType            @relation(fields: [roomTypeId], references: [id])
+  allowRoomSharing Boolean            @default(true)
+  reservedSlots   Int                 @default(0)
   status          ReservationStatus   @default(PENDING)
   checkIn         DateTime
   checkOut        DateTime
+  checkedInAt     DateTime?
+  checkedOutAt    DateTime?
+  checkInForm     Json?
+  checkOutForm    Json?
   totalPrice      Decimal             @db.Decimal(10, 2)
   specialRequests String?
   cats            ReservationCat[]
   services        ReservationService[]
   payments        Payment[]
+  roomAssignments RoomAssignment[]
   tasks           CareTask[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   @@index([customerId])
-  @@index([roomId])
+  @@index([roomTypeId])
 }
 
 model ReservationCat {
@@ -264,4 +292,48 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model PricingSettings {
+  id                        String   @id @default(cuid())
+  multiCatDiscountEnabled   Boolean  @default(false)
+  multiCatDiscounts         Json?
+  sharedRoomDiscountEnabled Boolean  @default(false)
+  sharedRoomDiscountPercent Decimal? @db.Decimal(5, 2)
+  sharedRoomDiscounts       Json?
+  longStayDiscountEnabled   Boolean  @default(false)
+  longStayDiscounts         Json?
+  longStayDiscount          Json?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model RoomAssignment {
+  id               String      @id @default(cuid())
+  reservationId    String
+  roomId           String
+  checkIn          DateTime
+  checkOut         DateTime
+  catCount         Int
+  allowRoomSharing Boolean    @default(true)
+  lockedAt         DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  reservation      Reservation @relation(fields: [reservationId], references: [id])
+  room             Room        @relation(fields: [roomId], references: [id])
+  cats             RoomAssignmentCat[]
+
+  @@index([roomId])
+  @@index([reservationId])
+  @@index([checkIn, checkOut])
+}
+
+model RoomAssignmentCat {
+  assignmentId String
+  catId        String
+  assignment   RoomAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  cat          Cat            @relation(fields: [catId], references: [id])
+
+  @@id([assignmentId, catId])
+  @@index([catId])
 }

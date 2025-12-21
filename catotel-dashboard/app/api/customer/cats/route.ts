@@ -1,22 +1,15 @@
 import { NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/server/backend-client';
-import { getAccessTokenFromCookies } from '@/lib/server/auth-cookies';
+import { backendRequestWithRefresh } from '@/lib/server/backend-auth-refresh';
 import { handleApiError } from '@/lib/server/api-error-response';
 import { requireCsrfToken } from '@/lib/server/csrf';
 
 export async function GET() {
-  const token = getAccessTokenFromCookies();
-  if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    const cats = await backendRequest(
+    const cats = await backendRequestWithRefresh(
       {
         method: 'GET',
         url: '/customers/cats',
       },
-      token,
     );
     return NextResponse.json(cats);
   } catch (error) {
@@ -30,22 +23,16 @@ export async function POST(request: Request) {
     return csrfError;
   }
 
-  const token = getAccessTokenFromCookies();
-  if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   const body = await request.json();
 
   try {
-    const cat = await backendRequest(
+    const cat = await backendRequestWithRefresh(
       {
         method: 'POST',
         url: '/customers/cats',
         body,
         mediaType: 'application/json',
       },
-      token,
     );
     return NextResponse.json(cat);
   } catch (error) {

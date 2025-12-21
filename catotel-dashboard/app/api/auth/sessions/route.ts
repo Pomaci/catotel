@@ -3,6 +3,8 @@ import { backendSessions } from '@/lib/server/backend-auth';
 import { getAccessTokenFromCookies } from '@/lib/server/auth-cookies';
 import { handleApiError } from '@/lib/server/api-error-response';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const token = getAccessTokenFromCookies();
   if (!token) {

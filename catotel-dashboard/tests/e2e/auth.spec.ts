@@ -14,7 +14,7 @@ describeFn('Catotel dashboard auth flows', () => {
     await page.getByRole('button', { name: /Hesabın yok mu/i }).click();
     await page.getByLabel(/Ad/i).fill('Playwright User');
     await page.getByLabel(/Email/i).fill(email);
-    await page.getByLabel(/Şifre/i).fill(password);
+    await page.getByLabel(/Ş�ifre/i).fill(password);
     await page.getByRole('button', { name: /Kayıt Ol ve Giriş Yap/i }).click();
 
     await page.waitForURL('**/dashboard');
@@ -30,7 +30,7 @@ describeFn('Catotel dashboard auth flows', () => {
   test('invalid login stays on landing and shows error', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel(/Email/i).fill('invalid@example.com');
-    await page.getByLabel(/Şifre/i).fill('wrong-password');
+    await page.getByLabel(/Ş�ifre/i).fill('wrong-password');
     await page.getByRole('button', { name: /Giriş Yap/i }).last().click();
 
     await expect(
@@ -39,16 +39,43 @@ describeFn('Catotel dashboard auth flows', () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test('API rejects CSRF-less login attempts', async ({ request }) => {
-    const response = await request.post('/api/auth/login', {
+  test('login enforces CSRF token tied to the session', async ({ request }) => {
+    const missingCsrf = await request.post('/api/auth/login', {
       headers: { 'Content-Type': 'application/json' },
       data: {
         email: 'csrf@test.com',
         password: 'csrf-test',
       },
     });
-    expect(response.status()).toBe(403);
-    const body = await response.json();
-    expect(body.message).toMatch(/CSRF/i);
+    expect(missingCsrf.status()).toBe(403);
+
+    const csrfResponse = await request.get('/api/auth/csrf');
+    expect(csrfResponse.ok()).toBeTruthy();
+    const { token } = (await csrfResponse.json()) as { token?: string };
+    expect(token).toBeTruthy();
+
+    const response = await request.post('/api/auth/login', {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': token ?? '',
+      },
+      data: {
+        email: 'csrf@test.com',
+        password: 'csrf-test',
+      },
+    });
+
+    expect(response.status()).not.toBe(403);
+    const setCookieHeader = response
+      .headersArray()
+      .filter(({ name }) => name.toLowerCase() === 'set-cookie')
+      .map(({ value }) => value)
+      .join('\n');
+    expect(setCookieHeader).toMatch(/catotel_csrf/);
+
+    if (response.status() >= 400) {
+      const body = await response.json().catch(() => ({}));
+      expect(body?.message ?? '').not.toMatch(/CSRF/i);
+    }
   });
 });

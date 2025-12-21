@@ -1,23 +1,40 @@
-import { NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/server/backend-client';
-import { getAccessTokenFromCookies } from '@/lib/server/auth-cookies';
-import { handleApiError } from '@/lib/server/api-error-response';
+"use server";
+
+import { NextResponse } from "next/server";
+import { backendRequestWithRefresh } from "@/lib/server/backend-auth-refresh";
+import { handleApiError } from "@/lib/server/api-error-response";
+import { requireCsrfToken } from "@/lib/server/csrf";
 
 type Params = { params: { id: string } };
 
-export async function GET(_request: Request, { params }: Params) {
-  const token = getAccessTokenFromCookies();
-  if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
+export async function PATCH(request: Request, { params }: Params) {
+  const csrfError = requireCsrfToken(request);
+  if (csrfError) return csrfError;
+
+  const body = await request.json();
 
   try {
-    const reservation = await backendRequest(
+    const updated = await backendRequestWithRefresh(
       {
-        method: 'GET',
+        method: "PATCH",
+        url: `/reservations/${params.id}`,
+        body,
+        mediaType: "application/json",
+      },
+    );
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function GET(_req: Request, { params }: Params) {
+  try {
+    const reservation = await backendRequestWithRefresh(
+      {
+        method: "GET",
         url: `/reservations/${params.id}`,
       },
-      token,
     );
     return NextResponse.json(reservation);
   } catch (error) {

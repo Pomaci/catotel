@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { backendRefresh } from '@/lib/server/backend-auth';
 import {
+  clearAuthCookies,
   getRefreshTokenFromCookies,
   setAuthCookies,
 } from '@/lib/server/auth-cookies';
 import { handleApiError } from '@/lib/server/api-error-response';
-import { requireCsrfToken } from '@/lib/server/csrf';
+import { ensureCsrfToken, requireCsrfToken } from '@/lib/server/csrf';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const csrfError = requireCsrfToken(request);
@@ -15,14 +18,19 @@ export async function POST(request: Request) {
 
   const refreshToken = getRefreshTokenFromCookies();
   if (!refreshToken) {
+    clearAuthCookies();
+    ensureCsrfToken();
     return NextResponse.json({ message: 'Refresh token yok.' }, { status: 401 });
   }
 
   try {
     const tokens = await backendRefresh({ refresh_token: refreshToken });
     setAuthCookies(tokens);
+    ensureCsrfToken();
     return NextResponse.json({ ok: true });
   } catch (error) {
+    clearAuthCookies();
+    ensureCsrfToken();
     return handleApiError(error);
   }
 }

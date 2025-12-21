@@ -9,6 +9,10 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { UserRole } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import {
+  localizedError,
+  ERROR_CODES,
+} from '../errors/localized-error.util';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -26,10 +30,14 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const user = request.user as { role?: UserRole } | undefined;
     if (!user) {
-      throw new UnauthorizedException('User payload missing');
+      throw new UnauthorizedException(
+        localizedError(ERROR_CODES.AUTH_PAYLOAD_MISSING),
+      );
     }
     if (!user.role || !requiredRoles.includes(user.role)) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw new ForbiddenException(
+        localizedError(ERROR_CODES.AUTH_INSUFFICIENT_PERMISSIONS),
+      );
     }
     return true;
   }

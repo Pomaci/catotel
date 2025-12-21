@@ -1,4 +1,4 @@
-import {
+﻿import {
   createContext,
   ReactNode,
   useCallback,
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setState((s) => ({
         ...s,
-        error: toErrorMessage(err, "Profil bilgileri alınamadı."),
+        error: toErrorMessage(err, "Profil bilgileri alınamadı.."),
       }));
     }
   }, []);
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) {
           setState((s) => ({
             ...s,
-            error: toErrorMessage(err, "Kayıtlı oturum okunamadı."),
+            error: toErrorMessage(err, "Kayıtlı oturum okunamadı.."),
           }));
         }
       } finally {
@@ -149,33 +149,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState((s) => ({
           ...s,
           loading: false,
-          error: toErrorMessage(err, "Giriş başarısız."),
+          error: toErrorMessage(err, "GiriÅŸ baÅŸarÄ±sÄ±z."),
         }));
       }
     },
     [handleTokens],
   );
 
-  const register = useCallback(async (payload: RegisterPayload) => {
-    setState((s) => ({ ...s, loading: true, error: null }));
-    try {
-      await api.register(payload);
-      setState((s) => ({ ...s, loading: false }));
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        loading: false,
-        error: toErrorMessage(err, "Kayıt işlemi başarısız."),
-      }));
-      throw err;
-    }
-  }, []);
+  const register = useCallback(
+    async (payload: RegisterPayload) => {
+      setState((s) => ({ ...s, loading: true, error: null }));
+      try {
+        await api.register({
+          email: payload.email,
+          password: payload.password,
+          name: payload.name,
+        });
+        const response = await api.login({
+          email: payload.email,
+          password: payload.password,
+        });
+        await handleTokens(response);
+        setState((s) => ({ ...s, user: response.user }));
+      } catch (err) {
+        setState((s) => ({
+          ...s,
+          loading: false,
+          error: toErrorMessage(err, "Kayıt işlemi başarısız."),
+        }));
+        throw err;
+      }
+    },
+    [handleTokens],
+  );
 
   const refresh = useCallback(async () => {
     if (!state.refreshToken) {
       setState((s) => ({
         ...s,
-        error: "Kayıtlı bir refresh token bulunamadı.",
+        error: "Kayıtlı bir refresh token bulunamadı..",
       }));
       return;
     }
@@ -188,7 +200,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         loading: false,
-        error: toErrorMessage(err, "Token yenileme başarısız."),
+        error: toErrorMessage(err, "Token yenileme baÅŸarÄ±sÄ±z."),
+      }));
+      await clearTokens();
+      setApiTokens(null, null);
+      setState((s) => ({
+        ...s,
+        accessToken: null,
+        refreshToken: null,
+        user: null,
       }));
     }
   }, [handleTokens, state.refreshToken]);
@@ -258,7 +278,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error("useAuth sadece AuthProvider içinde kullanılabilir.");
+    throw new Error("useAuth sadece AuthProvider iÃ§inde kullanÄ±labilir.");
   }
   return ctx;
 }
+
+
+

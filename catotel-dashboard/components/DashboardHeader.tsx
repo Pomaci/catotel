@@ -14,6 +14,14 @@ type Props = {
 
 export function DashboardHeader({ profile, latestReservation }: Props) {
   const { user } = useAuth();
+  const profileName = profile?.user.name;
+  const authName = user?.name as unknown;
+  const resolvedName =
+    typeof profileName === "string" && profileName.trim().length > 0
+      ? profileName
+      : typeof authName === "string" && authName.trim().length > 0
+        ? authName
+        : "Catotel kullanıcısı";
 
   const stats = useMemo(() => {
     if (!profile) {
@@ -30,23 +38,19 @@ export function DashboardHeader({ profile, latestReservation }: Props) {
     <section className="rounded-[32px] border border-sand-200 bg-gradient-to-br from-white via-sand-50 to-lagoon-100/40 p-8 shadow-soft">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            Merhaba
-          </p>
-          <h1 className="text-3xl font-semibold text-cocoa-700">
-            {profile?.user.name || user?.name || "Catotel kullanıcısı"}
-          </h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Merhaba</p>
+          <h1 className="text-3xl font-semibold text-cocoa-700">{resolvedName}</h1>
           <p className="text-sm text-slate-500">
             Aktif rolün{" "}
-            <span className="font-semibold text-lagoon-600">
-              {user?.role || "CUSTOMER"}
-            </span>
+            <span className="font-semibold text-lagoon-600">{user?.role || "CUSTOMER"}</span>
           </p>
         </div>
         <div className="flex flex-wrap gap-3 text-xs text-cocoa-600">
           <Badge dot tone="info">Güvenli oturumlar</Badge>
           <Badge tone="success">Cihaz yönetimi aktif</Badge>
-          {profile?.user.email && <Badge tone="default">{profile.user.email}</Badge>}
+          {typeof profile?.user.email === "string" && profile.user.email.trim().length > 0 && (
+            <Badge tone="default">{profile.user.email}</Badge>
+          )}
         </div>
       </div>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -68,16 +72,12 @@ export function DashboardHeader({ profile, latestReservation }: Props) {
         <HeaderStat
           icon={<Clock className="h-5 w-5 text-lagoon-600" />}
           label="Son rezervasyon"
-          value={
-            latestReservation
-              ? formatCurrency(latestReservation.totalPrice)
-              : "-"
-          }
+          value={latestReservation ? formatCurrency(latestReservation.totalPrice) : "-"}
           helper={
             latestReservation
-              ? `${new Date(latestReservation.checkIn).toLocaleDateString(
-                  "tr-TR",
-                )} · ${latestReservation.room.name}`
+              ? `${new Date(latestReservation.checkIn).toLocaleDateString("tr-TR")} · ${
+                  latestReservation.roomType?.name ?? "Oda bilinmiyor"
+                }`
               : "Henüz rezervasyon yok"
           }
         />
@@ -100,16 +100,11 @@ function HeaderStat({
   return (
     <div className="rounded-2xl border border-sand-200 bg-white/90 px-4 py-4 shadow-sm">
       <div className="flex items-center gap-2 text-slate-500">
-        <div className="rounded-full bg-lagoon-100 p-2 text-lagoon-600">
-          {icon}
-        </div>
-        <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-          {label}
-        </span>
+        <div className="rounded-full bg-lagoon-100 p-2 text-lagoon-600">{icon}</div>
+        <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">{label}</span>
       </div>
       <div className="mt-2 text-2xl font-semibold text-cocoa-700">{value}</div>
       {helper && <p className="text-xs text-slate-500">{helper}</p>}
     </div>
   );
 }
-

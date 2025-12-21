@@ -1,0 +1,9 @@
+export const DEFAULT_API_ORIGIN = 'http://localhost:3000';
+export const DEFAULT_DASHBOARD_ORIGIN = 'http://localhost:3100';
+export const DEFAULT_PASSWORD_RESET_PATH = '/auth/reset-password';
+export const DEFAULT_PASSWORD_RESET_URL = `${DEFAULT_DASHBOARD_ORIGIN}${DEFAULT_PASSWORD_RESET_PATH}`;
+export const DEFAULT_CORS_ORIGINS = [
+  DEFAULT_API_ORIGIN,
+  DEFAULT_DASHBOARD_ORIGIN,
+];
+export const DEFAULT_CORS_ORIGINS_STRING = DEFAULT_CORS_ORIGINS.join(',');

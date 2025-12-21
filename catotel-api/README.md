@@ -28,7 +28,7 @@ The server boots with a global `/api` prefix and URI versioning (`/api/v1`). Adj
 | `PORT` | HTTP port | `3000` |
 | `NODE_ENV` | `development`, `test`, or `production` | `development` |
 | `DATABASE_URL` | PostgreSQL connection string (Prisma format) | `-` |
-| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins | `http://localhost:3000,http://localhost:3001` |
+| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins (startup fails if empty/invalid) | `http://localhost:3000,http://localhost:3100` |
 | `ACCESS_TOKEN_SECRET` | HMAC secret for access tokens | `-` |
 | `REFRESH_TOKEN_SECRET` | HMAC secret for refresh tokens | `-` |
 | `ACCESS_TOKEN_TTL` | Access token lifetime (jsonwebtoken format) | `15m` |
@@ -47,6 +47,8 @@ The server boots with a global `/api` prefix and URI versioning (`/api/v1`). Adj
 | `MAIL_FROM` | Display name + email shown in the From header | `"Catotel <noreply@catotel.dev>"` |
 | `PASSWORD_RESET_URL` | Absolute URL of the frontend reset form | `http://localhost:3100/auth/reset-password` |
 | `PASSWORD_RESET_TOKEN_TTL_MINUTES` | Minutes before a reset token expires | `30` |
+| `PASSWORD_RESET_EMAIL_WINDOW_MINUTES` | Throttle window (minutes) for password reset/setup emails per address | `15` |
+| `PASSWORD_RESET_EMAIL_MAX_PER_WINDOW` | Max reset/setup emails allowed per address in the throttle window | `3` |
 
 All variables are validated during bootstrap; the application refuses to start if any are missing or malformed.
 
@@ -95,6 +97,20 @@ To publish the schema for client generation, run `npm run openapi:json` which wr
 - **Staff Tasks** (`/staff/tasks`): caregivers monitor and close care tasks tied to reservations/cats.
 - **Addon Services & Payments**: modelled in Prisma (addons + payments) ready for future endpoints/integrations.
 
+### Hotel days & timezone safety
+
+- `checkIn` and `checkOut` work as *hotel days* (date-only). The API persists them at midnight UTC via `src/common/hotel-day.util.ts` and completely ignores any clock component supplied in the payload.
+- Actual arrival/departure timestamps belong to the optional `checkInForm.arrivalTime` / `checkOutForm.departureTime` fields so the “operational” time data stays separate from the stay window.
+- Always send `YYYY-MM-DD` strings (or ISO strings whose date portion is correct); the service trims the time part, validates the result, and rejects past hotel days unless you’re force-checking in.
+- When writing client code, treat those values as opaque strings or run them through the `@/lib/utils/hotel-day` helpers. Calling `new Date('YYYY-MM-DD')` and letting the browser adjust it by timezone will shift the day and eventually create double-bookings.
+
+### Room assignments & check-in guarantees
+
+- Physical rooms are tracked through the new `RoomAssignment` + `RoomAssignmentCat` tables. Each reservation automatically receives an assignment that stores `roomId`, slot usage, and cat-level mapping.
+- `RoomAssignmentService` rebalances the entire room type after every reservation create/update. It prioritises keeping the same customer's cats together, fills the smallest possible number of room slots, and respects exclusivity (`allowRoomSharing=false`).
+- Once a reservation status flips to `CHECKED_IN`, its assignment is locked (`lockedAt` is set) so subsequent rebalances never move that stay. Cancelling/checking out removes the assignment so future bookings can reuse the room.
+- To keep the Prisma schema in sync, run `npx prisma migrate dev` so the `RoomAssignment*` tables are created locally, then run the Jest suite (`npm run test`) to validate the updated service logic.
+
 ## Testing
 
 The repository includes lightweight Jest specs to ensure modules can be instantiated, plus a realistic e2e flow (`test/app.e2e-spec.ts`) that drives the authentication lifecycle through HTTP. The e2e suite replaces Prisma with an in-memory adapter (`test/utils/in-memory-prisma.service.ts`), so it runs deterministically without touching your real database. Because validation pipes reject malformed DTOs, prefer testing both success and failure scenarios for auth-critical endpoints.
@@ -107,4 +123,4 @@ The repository includes lightweight Jest specs to ensure modules can be instanti
 
 ## License
 
-This project inherits the NestJS MIT license. See `LICENSE` for details.
+This service is distributed under the MIT License. See `../LICENSE` for details.

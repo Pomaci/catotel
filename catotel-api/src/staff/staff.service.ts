@@ -7,6 +7,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CareTaskStatus, UserRole } from '@prisma/client';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { publicUserSelect } from 'src/user/public-user.select';
+import {
+  localizedError,
+  ERROR_CODES,
+} from 'src/common/errors/localized-error.util';
 
 @Injectable()
 export class StaffService {
@@ -22,7 +26,7 @@ export class StaffService {
         cat: true,
         reservation: {
           include: {
-            room: true,
+            roomType: true,
             customer: { include: { user: { select: publicUserSelect } } },
           },
         },
@@ -43,11 +47,13 @@ export class StaffService {
       include: { assignedStaff: true },
     });
     if (!task) {
-      throw new NotFoundException('Task not found');
+      throw new NotFoundException(
+        localizedError(ERROR_CODES.STAFF_TASK_NOT_FOUND),
+      );
     }
     if (role === UserRole.STAFF && task.assignedStaff?.userId !== userId) {
       throw new ForbiddenException(
-        'This task is assigned to another staff member',
+        localizedError(ERROR_CODES.STAFF_TASK_FORBIDDEN),
       );
     }
     const now = new Date();

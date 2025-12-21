@@ -11,11 +11,14 @@ type UserRecord = {
 
 type SessionRecord = {
   id: string;
+  jti: string;
   userId: string;
   refreshToken: string;
   userAgent?: string;
   ip?: string;
   isRevoked: boolean;
+  revokedAt?: Date | null;
+  revokedReason?: string | null;
   lastUsedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +32,8 @@ type SessionWhereInput = {
   isRevoked?: boolean;
   expiresAt?: DateFilter;
   id?: string | { in: string[] };
+  jti?: string;
+  revokedAt?: DateFilter;
   OR?: SessionWhereInput[];
 };
 
@@ -60,9 +65,11 @@ export class InMemoryPrismaService {
     };
   }
 
-  $transaction = async <T>(
-    cb: (tx: { session: typeof this.session }) => Promise<T> | T,
-  ): Promise<T> => cb({ session: this.session });
+  async $transaction<T>(
+    cb: (tx: { session: InMemoryPrismaService['session'] }) => Promise<T> | T,
+  ): Promise<T> {
+    return cb({ session: this.session });
+  }
 
   private findUserUnique = ({
     where,
@@ -114,7 +121,7 @@ export class InMemoryPrismaService {
     where?: SessionWhereInput;
     orderBy?: SessionOrderBy;
     select?: SessionSelect;
-  } = {}): Promise<unknown[]> => {
+  } = {}): Promise<Partial<SessionRecord>[]> => {
     let result = [...this.sessions.values()].filter((session) =>
       this.matchesSessionWhere(session, where),
     );
@@ -130,7 +137,7 @@ export class InMemoryPrismaService {
       });
     }
 
-    const projected = result.map((session) =>
+    const projected: Partial<SessionRecord>[] = result.map((session) =>
       select ? this.applySelect(session, select) : session,
     );
     return Promise.resolve(projected);
@@ -143,20 +150,25 @@ export class InMemoryPrismaService {
       SessionRecord,
       'id' | 'createdAt' | 'updatedAt' | 'lastUsedAt'
     > & {
+      jti?: string;
       lastUsedAt?: Date;
     };
   }): Promise<SessionRecord> => {
     const now = new Date();
+    const jti = data.jti ?? randomUUID();
     const session: SessionRecord = {
       id: randomUUID(),
       createdAt: now,
       updatedAt: now,
       lastUsedAt: data.lastUsedAt ?? now,
+      jti,
       userId: data.userId,
       refreshToken: data.refreshToken,
       userAgent: data.userAgent,
       ip: data.ip,
       isRevoked: data.isRevoked ?? false,
+      revokedAt: data.revokedAt ?? null,
+      revokedReason: data.revokedReason ?? null,
       expiresAt: data.expiresAt,
     };
     this.sessions.set(session.id, session);
@@ -223,7 +235,7 @@ export class InMemoryPrismaService {
   private matchesSessionWhere(
     session: SessionRecord,
     where?: SessionWhereInput,
-  ) {
+  ): boolean {
     if (!where) return true;
     if (where.OR?.length) {
       return where.OR.some((clause) =>
@@ -244,11 +256,22 @@ export class InMemoryPrismaService {
     if (where.userId && session.userId !== where.userId) {
       return false;
     }
+    if (where.jti && session.jti !== where.jti) {
+      return false;
+    }
     if (
       typeof where.isRevoked === 'boolean' &&
       session.isRevoked !== where.isRevoked
     ) {
       return false;
+    }
+    if (where.revokedAt) {
+      if (where.revokedAt.gt && !(session.revokedAt! > where.revokedAt.gt)) {
+        return false;
+      }
+      if (where.revokedAt.lt && !(session.revokedAt! < where.revokedAt.lt)) {
+        return false;
+      }
     }
     if (where.expiresAt) {
       if (where.expiresAt.gt && !(session.expiresAt > where.expiresAt.gt)) {
